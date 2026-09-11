@@ -62,6 +62,20 @@ describe("runCli", () => {
     }
   });
 
+  it("uses the bundled registry when --registry is omitted", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-default-registry-"));
+    const targetDirectory = path.join(root, "demo");
+
+    try {
+      const exitCode = await runCli(["create", "demo", "--type", "empty", "--target", targetDirectory, "--yes"], { write: () => undefined });
+
+      expect(exitCode).toBe(0);
+      expect(existsSync(path.join(targetDirectory, "repo.config.yaml"))).toBe(true);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("prompts for a missing name and type before creating", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-cli-"));
     const registryRoot = path.join(root, "registry");

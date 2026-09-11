@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { createInterface } from "node:readline/promises";
+import { fileURLToPath } from "node:url";
 
 import { buildInfo } from "../application/info-service.js";
 import { runDoctor } from "../application/doctor-service.js";
@@ -21,7 +22,7 @@ export interface CliPrompt {
 }
 
 const defaultRegistryRoot = (): string => {
-  const directory = path.dirname(new URL(import.meta.url).pathname);
+  const directory = path.dirname(fileURLToPath(import.meta.url));
   const sourceRegistry = path.resolve(directory, "../../registry");
   return existsSync(sourceRegistry) ? sourceRegistry : path.resolve(directory, "../../../registry");
 };
