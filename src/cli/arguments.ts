@@ -1,6 +1,7 @@
 export type ParsedCommand =
   | { readonly kind: "help" }
   | { readonly kind: "info" }
+  | { readonly kind: "doctor" }
   | { readonly kind: "unknown"; readonly value?: string };
 
 export const parseArguments = (argv: readonly string[]): ParsedCommand => {
@@ -11,6 +12,7 @@ export const parseArguments = (argv: readonly string[]): ParsedCommand => {
   }
 
   if (command === "info") return { kind: "info" };
+  if (command === "doctor") return { kind: "doctor" };
 
   return { kind: "unknown", value: command };
 };

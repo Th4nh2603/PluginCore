@@ -1,4 +1,5 @@
 import { buildInfo } from "../application/info-service.js";
+import { runDoctor } from "../application/doctor-service.js";
 import { parseArguments } from "./arguments.js";
 import { helpText, infoText } from "./presentation.js";
 
@@ -17,6 +18,12 @@ export const runCli = async (argv: readonly string[], io: CliIo): Promise<number
   if (command.kind === "info") {
     io.write(infoText(buildInfo()));
     return 0;
+  }
+
+  if (command.kind === "doctor") {
+    const report = await runDoctor({ projectRoot: process.cwd() });
+    for (const diagnostic of [...report.passed, ...report.warnings, ...report.errors]) io.write(`${diagnostic.severity}: ${diagnostic.message}`);
+    return report.errors.length === 0 ? 0 : 1;
   }
 
   io.write(`Unknown command: ${command.value ?? ""}`.trim());
