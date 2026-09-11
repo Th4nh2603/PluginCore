@@ -4,6 +4,9 @@
   "private": true,
   "description": "A reusable, extension-driven repository standards platform.",
   "type": "module",
+  "bin": {
+    "repo": "bin/repo.cjs"
+  },
   "engines": {
     "node": ">=20"
   },
