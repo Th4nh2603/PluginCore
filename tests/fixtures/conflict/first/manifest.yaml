@@ -1,0 +1,5 @@
+schemaVersion: 1
+id: web-application
+kind: project-type
+version: 1.0.0
+displayName: First Web Application

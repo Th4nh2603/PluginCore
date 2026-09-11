@@ -1,0 +1,8 @@
+schemaVersion: 1
+id: security
+kind: agent
+version: 1.0.0
+displayName: Security
+agentHints:
+  required: []
+  recommended: [backend, testing]
