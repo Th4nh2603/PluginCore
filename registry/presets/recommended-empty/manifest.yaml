@@ -1,0 +1,8 @@
+schemaVersion: 1
+id: recommended-empty
+kind: preset
+version: 1.0.0
+displayName: Recommended Empty
+compatibility:
+  projectTypes:
+    - empty
