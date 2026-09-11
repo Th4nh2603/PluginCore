@@ -1,9 +1,12 @@
 import { existsSync } from "node:fs";
+import { mkdir } from "node:fs/promises";
 import path from "node:path";
 
 import type { RepoConfig } from "../core/config/repo-config.js";
 import { RepositoryStandardError } from "../core/errors.js";
 import { loadRegistry } from "../core/registry/registry-loader.js";
+import { createManagedState, writeYamlAtomically } from "./project-state.js";
+import { stringify } from "yaml";
 
 export interface CreateInput {
   readonly name: string;
@@ -57,4 +60,16 @@ export const planCreate = async (input: CreateInput): Promise<CreatePlan> => {
     operations: ["write-config", "write-managed-state"],
     preview: `Create ${input.name} (${input.projectType}) at ${targetDirectory}.`
   };
+};
+
+export const applyCreatePlan = async (plan: CreatePlan): Promise<void> => {
+  if (existsSync(plan.targetDirectory)) {
+    throw new RepositoryStandardError("CONFIG_INVALID", `Target directory already exists: ${plan.targetDirectory}.`);
+  }
+
+  await mkdir(plan.targetDirectory, { recursive: false });
+  const configPath = path.join(plan.targetDirectory, "repo.config.yaml");
+  const configText = stringify(plan.config);
+  await writeYamlAtomically(configPath, plan.config);
+  await writeYamlAtomically(path.join(plan.targetDirectory, ".repo-standard", "managed-state.yaml"), createManagedState(configText));
 };
