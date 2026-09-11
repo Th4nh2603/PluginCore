@@ -1,12 +1,43 @@
+import { existsSync } from "node:fs";
+import path from "node:path";
+import { createInterface } from "node:readline/promises";
+
 import { buildInfo } from "../application/info-service.js";
 import { runDoctor } from "../application/doctor-service.js";
 import { applyCreatePlan, planCreate } from "../application/create-service.js";
 import { parseArguments } from "./arguments.js";
 import { helpText, infoText } from "./presentation.js";
+import { loadRegistry } from "../core/registry/registry-loader.js";
 
 export interface CliIo {
   write(line: string): void;
+  prompt?: CliPrompt;
 }
+
+export interface CliPrompt {
+  input(message: string): Promise<string>;
+  select(message: string, choices: readonly { readonly name: string; readonly value: string }[]): Promise<string>;
+  confirm(message: string): Promise<boolean>;
+}
+
+const defaultRegistryRoot = (): string => {
+  const directory = path.dirname(new URL(import.meta.url).pathname);
+  const sourceRegistry = path.resolve(directory, "../../registry");
+  return existsSync(sourceRegistry) ? sourceRegistry : path.resolve(directory, "../../../registry");
+};
+
+const terminalPrompt = (): CliPrompt => {
+  const terminal = createInterface({ input: process.stdin, output: process.stdout });
+  return {
+    input: (message) => terminal.question(`${message}: `),
+    select: async (message, choices) => {
+      process.stdout.write(`${message}\n${choices.map((choice, index) => `${index + 1}. ${choice.name}`).join("\n")}\n`);
+      const answer = await terminal.question("Choose a number: ");
+      return choices[Number(answer) - 1]?.value ?? "";
+    },
+    confirm: async (message) => /^(y|yes)$/i.test(await terminal.question(`${message} [y/N]: `))
+  };
+};
 
 export const runCli = async (argv: readonly string[], io: CliIo): Promise<number> => {
   const command = parseArguments(argv);
@@ -28,16 +59,20 @@ export const runCli = async (argv: readonly string[], io: CliIo): Promise<number
   }
 
   if (command.kind === "create") {
-    const projectType = command.options.get("--type");
+    const interactive = io.prompt ?? (process.stdin.isTTY ? terminalPrompt() : undefined);
+    const name = command.name ?? (interactive === undefined ? undefined : await interactive.input("Repository name"));
+    const registryRoot = command.options.get("--registry") ?? defaultRegistryRoot();
+    const registry = typeof registryRoot === "string" ? await loadRegistry(registryRoot) : undefined;
+    const projectType = command.options.get("--type") ?? (interactive === undefined || registry === undefined ? undefined : await interactive.select("Project type", registry.list("project-type").map((item) => ({ name: item.displayName, value: item.id }))));
     const targetDirectory = command.options.get("--target");
-    const registryRoot = command.options.get("--registry");
-    if (command.name === undefined || typeof projectType !== "string" || typeof targetDirectory !== "string" || typeof registryRoot !== "string") {
-      io.write("Create requires <name>, --type, --target, and --registry.");
+    if (name === undefined || typeof projectType !== "string" || (targetDirectory !== undefined && typeof targetDirectory !== "string") || typeof registryRoot !== "string") {
+      io.write("Create requires a repository name and project type.");
       return 2;
     }
-    const plan = await planCreate({ name: command.name, projectType, targetDirectory, registryRoot, stack: {}, capabilities: [], agentMode: "automatic" });
+    const plan = await planCreate({ name, projectType, targetDirectory: typeof targetDirectory === "string" ? targetDirectory : path.resolve(process.cwd(), name), registryRoot, stack: {}, capabilities: [], agentMode: "automatic" });
     io.write(plan.preview);
-    if (command.options.get("--yes") !== true) {
+    const confirmed = command.options.get("--yes") === true || (interactive !== undefined && await interactive.confirm("Create this repository?"));
+    if (!confirmed) {
       io.write("Review the plan and re-run with --yes to create files.");
       return 2;
     }

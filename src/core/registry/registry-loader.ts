@@ -20,6 +20,10 @@ export class Registry {
   public get(kind: ExtensionKind, id: string): ExtensionManifest | undefined {
     return this.#entries.get(registryKey(kind, id));
   }
+
+  public list(kind: ExtensionKind): readonly ExtensionManifest[] {
+    return [...this.#entries.values()].filter((entry) => entry.kind === kind);
+  }
 }
 
 const findManifestPaths = async (registryRoot: string, directory = registryRoot): Promise<readonly string[]> => {

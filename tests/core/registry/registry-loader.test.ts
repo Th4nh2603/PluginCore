@@ -12,6 +12,7 @@ describe("loadRegistry", () => {
 
     expect(registry.get("project-type", "web-application")?.version).toBe("1.0.0");
     expect(registry.get("agent", "security")?.kind).toBe("agent");
+    expect(registry.list("project-type").map((manifest) => manifest.id)).toEqual(["web-application"]);
   });
 
   it("rejects duplicate kind and ID entries", async () => {

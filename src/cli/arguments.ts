@@ -16,7 +16,8 @@ export const parseArguments = (argv: readonly string[]): ParsedCommand => {
   if (command === "doctor") return { kind: "doctor" };
   if (command === "create") {
     const options = new Map<string, string | true>();
-    for (let index = 2; index < argv.length; index += 1) {
+    const name = argv[1]?.startsWith("--") ? undefined : argv[1];
+    for (let index = name === undefined ? 1 : 2; index < argv.length; index += 1) {
       const token = argv[index];
       if (token?.startsWith("--")) {
         const value = argv[index + 1];
@@ -24,9 +25,9 @@ export const parseArguments = (argv: readonly string[]): ParsedCommand => {
         else { options.set(token, value); index += 1; }
       }
     }
-    return argv[1] === undefined
+    return name === undefined
       ? { kind: "create", options }
-      : { kind: "create", name: argv[1], options };
+      : { kind: "create", name, options };
   }
 
   return { kind: "unknown", value: command };

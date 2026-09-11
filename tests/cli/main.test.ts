@@ -61,4 +61,28 @@ describe("runCli", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  it("prompts for a missing name and type before creating", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-cli-"));
+    const registryRoot = path.join(root, "registry");
+    const targetDirectory = path.join(root, "interactive-demo");
+    await mkdir(path.join(registryRoot, "project-types", "empty"), { recursive: true });
+    await writeFile(path.join(registryRoot, "project-types", "empty", "manifest.yaml"), "schemaVersion: 1\nid: empty\nkind: project-type\nversion: 1.0.0\ndisplayName: Empty\n", "utf8");
+
+    try {
+      const exitCode = await runCli(["create", "--target", targetDirectory, "--registry", registryRoot], {
+        write: () => undefined,
+        prompt: {
+          input: async () => "interactive-demo",
+          select: async () => "empty",
+          confirm: async () => true
+        }
+      } as never);
+
+      expect(exitCode).toBe(0);
+      expect(existsSync(path.join(targetDirectory, "repo.config.yaml"))).toBe(true);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });
