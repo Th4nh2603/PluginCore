@@ -106,6 +106,18 @@ describe("planCreate", () => {
     const authTests = await readFile(path.join(targetDirectory, "apps", "api", "src", "auth", "router.test.ts"), "utf8");
     expect(authTests).toContain("/auth/register");
     expect(authTests).toContain("/auth/me");
+    const webAuthApi = await readFile(path.join(targetDirectory, "apps", "web", "src", "auth", "api.ts"), "utf8");
+    expect(webAuthApi).toContain('credentials: "include"');
+    expect(webAuthApi).toContain("/auth/login");
+    expect(webAuthApi).toContain("/auth/me");
+    const loginPage = await readFile(path.join(targetDirectory, "apps", "web", "src", "auth", "LoginPage.tsx"), "utf8");
+    expect(loginPage).toContain("Continue with Google");
+    expect(loginPage).toContain("type FormEvent");
+    expect(await readFile(path.join(targetDirectory, "apps", "web", "src", "auth", "AuthProvider.tsx"), "utf8")).toContain("getCurrentUser");
+    expect(await readFile(path.join(targetDirectory, "apps", "web", "src", "auth", "ProtectedApp.tsx"), "utf8")).toContain("Sign out");
+    const webStyles = await readFile(path.join(targetDirectory, "apps", "web", "src", "index.css"), "utf8");
+    expect(webStyles).toContain("--cobalt: #2256d7");
+    expect(webStyles).toContain("prefers-reduced-motion");
     expect(await readFile(path.join(targetDirectory, "AGENTS.md"), "utf8")).toContain("agents/frontend.toml");
     expect(await readFile(path.join(targetDirectory, "agents", "reviewer.toml"), "utf8")).toContain("review_only = true");
     expect(JSON.parse(await readFile(path.join(targetDirectory, "package.json"), "utf8")).packageManager).toBeUndefined();
