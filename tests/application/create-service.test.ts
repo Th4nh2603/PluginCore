@@ -86,8 +86,8 @@ describe("planCreate", () => {
 
     expect(plan.config.agents).toEqual({ mode: "automatic", enabled: ["frontend@1.0.0", "backend@1.0.0", "shared@1.0.0", "reviewer@1.0.0"], adapters: ["codex"] });
     expect(existsSync(path.join(targetDirectory, "pnpm-workspace.yaml"))).toBe(true);
-    expect(await readFile(path.join(targetDirectory, "AGENTS.md"), "utf8")).toContain("agents/frontend.md");
-    expect(await readFile(path.join(targetDirectory, "agents", "reviewer.md"), "utf8")).toContain("review-only");
+    expect(await readFile(path.join(targetDirectory, "AGENTS.md"), "utf8")).toContain("agents/frontend.toml");
+    expect(await readFile(path.join(targetDirectory, "agents", "reviewer.toml"), "utf8")).toContain("review_only = true");
     expect(JSON.parse(await readFile(path.join(targetDirectory, "package.json"), "utf8")).packageManager).toBeUndefined();
     expect(await readFile(path.join(targetDirectory, "apps", "api", "src", "server.ts"), "utf8")).toContain("express");
     expect(await readFile(path.join(targetDirectory, "packages", "shared", "src", "index.ts"), "utf8")).toContain("export");
