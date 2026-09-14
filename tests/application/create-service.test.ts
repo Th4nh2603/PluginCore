@@ -88,6 +88,8 @@ describe("planCreate", () => {
     expect(existsSync(path.join(targetDirectory, "pnpm-workspace.yaml"))).toBe(true);
     expect(await readFile(path.join(targetDirectory, "docker-compose.yml"), "utf8")).toContain("postgres:16");
     expect(await readFile(path.join(targetDirectory, "apps", "api", ".env.example"), "utf8")).toContain("JWT_SECRET");
+    expect(await readFile(path.join(targetDirectory, "apps", "api", ".env"), "utf8")).toContain("DATABASE_URL=postgresql://app:app@localhost:5432/app?schema=public");
+    expect(await readFile(path.join(targetDirectory, "apps", "api", ".gitignore"), "utf8")).toContain(".env");
     expect(await readFile(path.join(targetDirectory, "apps", "api", "prisma", "schema.prisma"), "utf8")).toContain("model User");
     const authRouter = await readFile(path.join(targetDirectory, "apps", "api", "src", "auth", "router.ts"), "utf8");
     expect(authRouter).toContain("/register");
