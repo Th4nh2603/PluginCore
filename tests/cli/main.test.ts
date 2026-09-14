@@ -125,4 +125,28 @@ describe("runCli", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  it("falls back to Custom when the recommended stack is declined", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-custom-"));
+    const targetDirectory = path.join(root, "web-demo");
+    let confirmations = 0;
+
+    try {
+      const exitCode = await runCli(["create", "web-demo", "--target", targetDirectory], {
+        write: () => undefined,
+        prompt: {
+          input: async () => "unused",
+          select: async (message: string) => message === "Project type" ? "web" : "recommended-web",
+          confirm: async () => ++confirmations > 1
+        },
+        generatorRunner: { run: async () => undefined }
+      } as never);
+
+      expect(exitCode).toBe(0);
+      const config = (await import("yaml")).parse(await (await import("node:fs/promises")).readFile(path.join(targetDirectory, "repo.config.yaml"), "utf8"));
+      expect(config.composition.preset).toBeUndefined();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });

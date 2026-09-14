@@ -79,7 +79,7 @@ export const runCli = async (argv: readonly string[], io: CliIo): Promise<number
       const projectTypes = preset.compatibility?.projectTypes;
       return Array.isArray(projectTypes) && projectTypes.includes(projectType);
     }) ?? [];
-    const preset = typeof configuredPreset === "string"
+    let preset = typeof configuredPreset === "string"
       ? configuredPreset
       : interactive === undefined || compatiblePresets.length === 0
         ? undefined
@@ -90,6 +90,10 @@ export const runCli = async (argv: readonly string[], io: CliIo): Promise<number
     const selectedPreset = preset === undefined ? undefined : registry?.get("preset", preset);
     if (selectedPreset !== undefined) {
       io.write(formatPresetPreview(selectedPreset, color));
+      if (configuredPreset === undefined && command.options.get("--yes") !== true && interactive !== undefined && !await interactive.confirm("Use this recommended stack?")) {
+        preset = undefined;
+        io.write("Using Custom stack configuration.");
+      }
     }
     const plan = await planCreate({ name, projectType, targetDirectory: typeof targetDirectory === "string" ? targetDirectory : path.resolve(process.cwd(), name), registryRoot, ...(preset === undefined ? {} : { preset }), stack: {}, capabilities: [], agentMode: "automatic" });
     io.write(plan.preview);
