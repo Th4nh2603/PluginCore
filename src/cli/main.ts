@@ -8,11 +8,12 @@ import { runDoctor } from "../application/doctor-service.js";
 import { applyCreatePlan, planCreate } from "../application/create-service.js";
 import type { GeneratorRunner } from "../application/generator-runner.js";
 import { parseArguments } from "./arguments.js";
-import { helpText, infoText } from "./presentation.js";
+import { formatPresetPreview, helpText, infoText } from "./presentation.js";
 import { loadRegistry } from "../core/registry/registry-loader.js";
 
 export interface CliIo {
   write(line: string): void;
+  color?: boolean;
   prompt?: CliPrompt;
   generatorRunner?: GeneratorRunner;
 }
@@ -29,12 +30,12 @@ const defaultRegistryRoot = (): string => {
   return existsSync(sourceRegistry) ? sourceRegistry : path.resolve(directory, "../../../registry");
 };
 
-const terminalPrompt = (): CliPrompt => {
+const terminalPrompt = (color: boolean): CliPrompt => {
   const terminal = createInterface({ input: process.stdin, output: process.stdout });
   return {
     input: (message) => terminal.question(`${message}: `),
     select: async (message, choices) => {
-      process.stdout.write(`${message}\n${choices.map((choice, index) => `${index + 1}. ${choice.name}`).join("\n")}\n`);
+      process.stdout.write(`${message}\n${choices.map((choice, index) => `${color ? "\u001B[33m" : ""}${index + 1}.${color ? "\u001B[0m" : ""} ${color ? "\u001B[36m" : ""}${choice.name}${color ? "\u001B[0m" : ""}`).join("\n")}\n`);
       const answer = await terminal.question("Choose a number: ");
       return choices[Number(answer) - 1]?.value ?? "";
     },
@@ -62,7 +63,8 @@ export const runCli = async (argv: readonly string[], io: CliIo): Promise<number
   }
 
   if (command.kind === "create") {
-    const interactive = io.prompt ?? (process.stdin.isTTY ? terminalPrompt() : undefined);
+    const color = io.color ?? (process.stdout.isTTY === true && process.env.NO_COLOR === undefined);
+    const interactive = io.prompt ?? (process.stdin.isTTY ? terminalPrompt(color) : undefined);
     const name = command.name ?? (interactive === undefined ? undefined : await interactive.input("Repository name"));
     const registryRoot = command.options.get("--registry") ?? defaultRegistryRoot();
     const registry = typeof registryRoot === "string" ? await loadRegistry(registryRoot) : undefined;
@@ -87,10 +89,7 @@ export const runCli = async (argv: readonly string[], io: CliIo): Promise<number
           ]) || undefined;
     const selectedPreset = preset === undefined ? undefined : registry?.get("preset", preset);
     if (selectedPreset !== undefined) {
-      io.write(selectedPreset.displayName);
-      for (const [category, value] of Object.entries(selectedPreset.selection?.stack ?? {})) {
-        io.write(`${category.charAt(0).toUpperCase()}${category.slice(1)}: ${value}`);
-      }
+      io.write(formatPresetPreview(selectedPreset, color));
     }
     const plan = await planCreate({ name, projectType, targetDirectory: typeof targetDirectory === "string" ? targetDirectory : path.resolve(process.cwd(), name), registryRoot, ...(preset === undefined ? {} : { preset }), stack: {}, capabilities: [], agentMode: "automatic" });
     io.write(plan.preview);

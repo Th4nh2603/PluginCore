@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import("../dist/src/cli/main.js")
-  .then(({ runCli }) => runCli(process.argv.slice(2), { write: console.log }))
+  .then(({ runCli }) => runCli(process.argv.slice(2), { write: console.log, color: process.stdout.isTTY && !process.env.NO_COLOR }))
   .then((exitCode) => {
     process.exitCode = exitCode;
   })
