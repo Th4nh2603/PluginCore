@@ -86,6 +86,26 @@ describe("planCreate", () => {
 
     expect(plan.config.agents).toEqual({ mode: "automatic", enabled: ["frontend@1.0.0", "backend@1.0.0", "shared@1.0.0", "reviewer@1.0.0"], adapters: ["codex"] });
     expect(existsSync(path.join(targetDirectory, "pnpm-workspace.yaml"))).toBe(true);
+    expect(await readFile(path.join(targetDirectory, "docker-compose.yml"), "utf8")).toContain("postgres:16");
+    expect(await readFile(path.join(targetDirectory, "apps", "api", ".env.example"), "utf8")).toContain("JWT_SECRET");
+    expect(await readFile(path.join(targetDirectory, "apps", "api", "prisma", "schema.prisma"), "utf8")).toContain("model User");
+    const authRouter = await readFile(path.join(targetDirectory, "apps", "api", "src", "auth", "router.ts"), "utf8");
+    expect(authRouter).toContain("/register");
+    expect(authRouter).toContain("/login");
+    expect(authRouter).toContain("Invalid email or password");
+    expect(await readFile(path.join(targetDirectory, "apps", "api", "src", "auth", "password.ts"), "utf8")).toContain("argon2id as 2");
+    expect(await readFile(path.join(targetDirectory, "apps", "api", "src", "auth", "token.ts"), "utf8")).toContain("15m");
+    const apiPackage = JSON.parse(await readFile(path.join(targetDirectory, "apps", "api", "package.json"), "utf8"));
+    expect(apiPackage.dependencies).toMatchObject({ argon2: expect.any(String), jose: expect.any(String), "@prisma/client": expect.any(String) });
+    expect(apiPackage.dependencies["@prisma/client"]).toBe("^6.19.3");
+    expect(apiPackage.devDependencies.prisma).toBe("^6.19.3");
+    const server = await readFile(path.join(targetDirectory, "apps", "api", "src", "server.ts"), "utf8");
+    expect(server).toContain("helmet");
+    expect(server).toContain("rateLimit");
+    expect(server).toContain("/auth");
+    const authTests = await readFile(path.join(targetDirectory, "apps", "api", "src", "auth", "router.test.ts"), "utf8");
+    expect(authTests).toContain("/auth/register");
+    expect(authTests).toContain("/auth/me");
     expect(await readFile(path.join(targetDirectory, "AGENTS.md"), "utf8")).toContain("agents/frontend.toml");
     expect(await readFile(path.join(targetDirectory, "agents", "reviewer.toml"), "utf8")).toContain("review_only = true");
     expect(JSON.parse(await readFile(path.join(targetDirectory, "package.json"), "utf8")).packageManager).toBeUndefined();
@@ -104,7 +124,8 @@ describe("planCreate", () => {
 
     expect(commands).toEqual([
       [pnpm, "create", "vite", "apps/web", "--template", "react-ts", "--no-interactive", targetDirectory],
-      [pnpm, "install", targetDirectory]
+      [pnpm, "install", targetDirectory],
+      [pnpm, "--filter", "./apps/api", "exec", "prisma", "generate", targetDirectory]
     ]);
   });
 });
