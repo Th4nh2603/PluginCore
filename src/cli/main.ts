@@ -8,7 +8,7 @@ import { runDoctor } from "../application/doctor-service.js";
 import { applyCreatePlan, planCreate } from "../application/create-service.js";
 import type { GeneratorRunner } from "../application/generator-runner.js";
 import { parseArguments } from "./arguments.js";
-import { formatPresetPreview, helpText, infoText } from "./presentation.js";
+import { formatPresetPreview, formatSelectOption, helpText, infoText } from "./presentation.js";
 import { loadRegistry } from "../core/registry/registry-loader.js";
 
 export interface CliIo {
@@ -35,7 +35,7 @@ const terminalPrompt = (color: boolean): CliPrompt => {
   return {
     input: (message) => terminal.question(`${message}: `),
     select: async (message, choices) => {
-      process.stdout.write(`${message}\n${choices.map((choice, index) => `${color ? "\u001B[33m" : ""}${index + 1}.${color ? "\u001B[0m" : ""} ${color ? "\u001B[36m" : ""}${choice.name}${color ? "\u001B[0m" : ""}`).join("\n")}\n`);
+      process.stdout.write(`${message}\n${choices.map((choice, index) => formatSelectOption(index + 1, choice, color)).join("\n")}\n`);
       const answer = await terminal.question("Choose a number: ");
       return choices[Number(answer) - 1]?.value ?? "";
     },
