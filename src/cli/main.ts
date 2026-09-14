@@ -70,7 +70,20 @@ export const runCli = async (argv: readonly string[], io: CliIo): Promise<number
       io.write("Create requires a repository name and project type.");
       return 2;
     }
-    const plan = await planCreate({ name, projectType, targetDirectory: typeof targetDirectory === "string" ? targetDirectory : path.resolve(process.cwd(), name), registryRoot, stack: {}, capabilities: [], agentMode: "automatic" });
+    const configuredPreset = command.options.get("--preset");
+    const compatiblePresets = registry?.list("preset").filter((preset) => {
+      const projectTypes = preset.compatibility?.projectTypes;
+      return Array.isArray(projectTypes) && projectTypes.includes(projectType);
+    }) ?? [];
+    const preset = typeof configuredPreset === "string"
+      ? configuredPreset
+      : interactive === undefined || compatiblePresets.length === 0
+        ? undefined
+        : await interactive.select("Stack configuration", [
+            ...compatiblePresets.map((item) => ({ name: item.displayName, value: item.id })),
+            { name: "Custom", value: "" }
+          ]) || undefined;
+    const plan = await planCreate({ name, projectType, targetDirectory: typeof targetDirectory === "string" ? targetDirectory : path.resolve(process.cwd(), name), registryRoot, ...(preset === undefined ? {} : { preset }), stack: {}, capabilities: [], agentMode: "automatic" });
     io.write(plan.preview);
     const confirmed = command.options.get("--yes") === true || (interactive !== undefined && await interactive.confirm("Create this repository?"));
     if (!confirmed) {

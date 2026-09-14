@@ -43,11 +43,20 @@ export const planCreate = async (input: CreateInput): Promise<CreatePlan> => {
     throw new RepositoryStandardError("CONFIG_INVALID", `Project type "${input.projectType}" is not available.`);
   }
 
+  const preset = input.preset === undefined ? undefined : registry.get("preset", input.preset);
+  if (input.preset !== undefined && preset === undefined) {
+    throw new RepositoryStandardError("CONFIG_INVALID", `Preset "${input.preset}" is not available.`);
+  }
+  const supportedProjectTypes = preset?.compatibility?.projectTypes;
+  if (Array.isArray(supportedProjectTypes) && !supportedProjectTypes.includes(input.projectType)) {
+    throw new RepositoryStandardError("CONFIG_INVALID", `Preset "${input.preset}" is not compatible with ${input.projectType}.`);
+  }
+
   const config: RepoConfig = {
     schemaVersion: 1,
     plugin: { id: "repo-standard", version: "0.1.0" },
     project: { name: input.name, type: input.projectType, root: "." },
-    composition: { ...(input.preset === undefined ? {} : { preset: input.preset }), stack: { ...input.stack }, capabilities: [...input.capabilities] },
+    composition: { ...(preset === undefined ? {} : { preset: `${preset.id}@${preset.version}` }), stack: { ...preset?.selection?.stack, ...input.stack }, capabilities: [...input.capabilities] },
     agents: { mode: input.agentMode, enabled: [], adapters: [] },
     flows: { defaults: [] },
     standards: { overrides: [] },

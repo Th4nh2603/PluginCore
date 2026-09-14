@@ -1,0 +1,8 @@
+schemaVersion: 1
+id: recommended-cli
+kind: preset
+version: 1.0.0
+displayName: Recommended CLI Stack
+compatibility: { projectTypes: [cli] }
+selection:
+  stack: { runtime: nodejs@22, language: typescript@5, packageManager: pnpm@10, testing: vitest@4 }

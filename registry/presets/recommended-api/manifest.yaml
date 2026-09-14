@@ -1,0 +1,8 @@
+schemaVersion: 1
+id: recommended-api
+kind: preset
+version: 1.0.0
+displayName: Recommended API Stack
+compatibility: { projectTypes: [api] }
+selection:
+  stack: { framework: nestjs@11, language: typescript@5, packageManager: pnpm@10, database: postgresql@17, orm: prisma@6, testing: vitest@4 }

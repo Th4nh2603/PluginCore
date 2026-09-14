@@ -1,0 +1,8 @@
+schemaVersion: 1
+id: recommended-library
+kind: preset
+version: 1.0.0
+displayName: Recommended Library Stack
+compatibility: { projectTypes: [library] }
+selection:
+  stack: { language: typescript@5, packageManager: pnpm@10, testing: vitest@4 }

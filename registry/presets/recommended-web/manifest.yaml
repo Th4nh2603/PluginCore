@@ -1,0 +1,8 @@
+schemaVersion: 1
+id: recommended-web
+kind: preset
+version: 1.0.0
+displayName: Recommended Web Stack
+compatibility: { projectTypes: [web] }
+selection:
+  stack: { framework: nextjs@15, language: typescript@5, packageManager: pnpm@10, ui: tailwind@4, testing: vitest@4 }

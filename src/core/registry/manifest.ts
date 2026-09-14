@@ -26,6 +26,11 @@ export const ExtensionManifestSchema = z
     displayName: z.string().min(1),
     description: z.string().min(1).optional(),
     compatibility: z.record(z.string(), z.unknown()).optional(),
+    selection: z
+      .object({
+        stack: z.record(z.string(), z.string()).default({})
+      })
+      .optional(),
     dependencies: z.array(extensionId).optional(),
     policyRefs: z.array(extensionId).optional(),
     agentHints: z

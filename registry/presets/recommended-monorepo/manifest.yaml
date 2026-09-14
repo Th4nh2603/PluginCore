@@ -1,0 +1,8 @@
+schemaVersion: 1
+id: recommended-monorepo
+kind: preset
+version: 1.0.0
+displayName: Recommended Monorepo Stack
+compatibility: { projectTypes: [monorepo] }
+selection:
+  stack: { workspace: pnpm-workspaces@10, language: typescript@5, testing: vitest@4 }

@@ -46,4 +46,18 @@ describe("planCreate", () => {
     expect(existsSync(path.join(targetDirectory, "repo.config.yaml"))).toBe(true);
     expect(existsSync(path.join(targetDirectory, ".repo-standard", "managed-state.yaml"))).toBe(true);
   });
+
+  it("applies an extension-provided recommended preset", async () => {
+    const root = await makeRoot();
+    const registryRoot = path.join(root, "registry");
+    await mkdir(path.join(registryRoot, "project-types", "web", "..", "..", "presets", "recommended-web"), { recursive: true });
+    await mkdir(path.join(registryRoot, "project-types", "web"), { recursive: true });
+    await writeFile(path.join(registryRoot, "project-types", "web", "manifest.yaml"), "schemaVersion: 1\nid: web\nkind: project-type\nversion: 1.0.0\ndisplayName: Web\n", "utf8");
+    await writeFile(path.join(registryRoot, "presets", "recommended-web", "manifest.yaml"), "schemaVersion: 1\nid: recommended-web\nkind: preset\nversion: 1.0.0\ndisplayName: Recommended Web\ncompatibility: { projectTypes: [web] }\nselection: { stack: { framework: nextjs@15, language: typescript@5, packageManager: pnpm@10 } }\n", "utf8");
+
+    const plan = await planCreate({ name: "demo", projectType: "web", targetDirectory: path.join(root, "demo"), registryRoot, preset: "recommended-web", stack: {}, agentMode: "automatic", capabilities: [] });
+
+    expect(plan.config.composition.preset).toBe("recommended-web@1.0.0");
+    expect(plan.config.composition.stack).toEqual({ framework: "nextjs@15", language: "typescript@5", packageManager: "pnpm@10" });
+  });
 });

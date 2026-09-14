@@ -99,4 +99,25 @@ describe("runCli", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  it("offers and applies a compatible recommended preset", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-recommended-"));
+    const targetDirectory = path.join(root, "web-demo");
+
+    try {
+      const exitCode = await runCli(["create", "web-demo", "--target", targetDirectory], {
+        write: () => undefined,
+        prompt: {
+          input: async () => "unused",
+          select: async (message: string) => message === "Project type" ? "web" : "recommended-web",
+          confirm: async () => true
+        }
+      } as never);
+
+      expect(exitCode).toBe(0);
+      expect((await import("yaml")).parse(await (await import("node:fs/promises")).readFile(path.join(targetDirectory, "repo.config.yaml"), "utf8")).composition.preset).toBe("recommended-web@1.0.0");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });
