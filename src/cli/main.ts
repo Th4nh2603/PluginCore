@@ -83,6 +83,13 @@ export const runCli = async (argv: readonly string[], io: CliIo): Promise<number
             ...compatiblePresets.map((item) => ({ name: item.displayName, value: item.id })),
             { name: "Custom", value: "" }
           ]) || undefined;
+    const selectedPreset = preset === undefined ? undefined : registry?.get("preset", preset);
+    if (selectedPreset !== undefined) {
+      io.write(selectedPreset.displayName);
+      for (const [category, value] of Object.entries(selectedPreset.selection?.stack ?? {})) {
+        io.write(`${category.charAt(0).toUpperCase()}${category.slice(1)}: ${value}`);
+      }
+    }
     const plan = await planCreate({ name, projectType, targetDirectory: typeof targetDirectory === "string" ? targetDirectory : path.resolve(process.cwd(), name), registryRoot, ...(preset === undefined ? {} : { preset }), stack: {}, capabilities: [], agentMode: "automatic" });
     io.write(plan.preview);
     const confirmed = command.options.get("--yes") === true || (interactive !== undefined && await interactive.confirm("Create this repository?"));

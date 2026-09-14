@@ -105,8 +105,9 @@ describe("runCli", () => {
     const targetDirectory = path.join(root, "web-demo");
 
     try {
+      const output: string[] = [];
       const exitCode = await runCli(["create", "web-demo", "--target", targetDirectory], {
-        write: () => undefined,
+        write: (line) => output.push(line),
         prompt: {
           input: async () => "unused",
           select: async (message: string) => message === "Project type" ? "web" : "recommended-web",
@@ -115,6 +116,8 @@ describe("runCli", () => {
       } as never);
 
       expect(exitCode).toBe(0);
+      expect(output.join("\n")).toContain("Framework: nextjs@15");
+      expect(output.join("\n")).toContain("Testing: vitest@4");
       expect((await import("yaml")).parse(await (await import("node:fs/promises")).readFile(path.join(targetDirectory, "repo.config.yaml"), "utf8")).composition.preset).toBe("recommended-web@1.0.0");
     } finally {
       await rm(root, { recursive: true, force: true });
