@@ -2,4 +2,4 @@ schemaVersion: 1
 id: monorepo
 kind: project-type
 version: 1.0.0
-displayName: Monorepo
+displayName: Monorepo — apps/web (Vite + React), apps/api (Express), packages/shared (TypeScript)

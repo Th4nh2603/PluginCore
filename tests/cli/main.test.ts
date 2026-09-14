@@ -126,6 +126,36 @@ describe("runCli", () => {
     }
   });
 
+  it("describes the workspaces included in the Monorepo option", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-monorepo-"));
+    const targetDirectory = path.join(root, "monorepo-demo");
+    let monorepoOption = "";
+
+    try {
+      await runCli(["create", "monorepo-demo", "--target", targetDirectory], {
+        write: () => undefined,
+        prompt: {
+          input: async () => "unused",
+          select: async (message: string, choices: readonly { readonly name: string; readonly value: string }[]) => {
+            if (message === "Project type") {
+              monorepoOption = choices.find((choice) => choice.value === "monorepo")?.name ?? "";
+              return "empty";
+            }
+            return "";
+          },
+          confirm: async () => true
+        },
+        generatorRunner: { run: async () => undefined }
+      } as never);
+
+      expect(monorepoOption).toContain("apps/web");
+      expect(monorepoOption).toContain("apps/api");
+      expect(monorepoOption).toContain("packages/shared");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("falls back to Custom when the recommended stack is declined", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-custom-"));
     const targetDirectory = path.join(root, "web-demo");
