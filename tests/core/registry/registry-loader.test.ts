@@ -26,4 +26,10 @@ describe("loadRegistry", () => {
       code: "MANIFEST_INVALID"
     });
   });
+
+  it("ships the Monorepo role definitions", async () => {
+    const registry = await loadRegistry(path.join(process.cwd(), "registry"));
+
+    expect(registry.list("agent").map((manifest) => manifest.id)).toEqual(["backend", "frontend", "reviewer", "shared"]);
+  });
 });

@@ -28,6 +28,7 @@ export interface CreatePlan {
 }
 
 const validName = /^[a-z0-9][a-z0-9-]*$/i;
+const monorepoAgentIds = ["frontend@1.0.0", "backend@1.0.0", "shared@1.0.0", "reviewer@1.0.0"];
 
 const writeMonorepoScaffold = async (targetDirectory: string, name: string): Promise<void> => {
   const packageScope = `@${name}`;
@@ -45,6 +46,11 @@ const writeMonorepoScaffold = async (targetDirectory: string, name: string): Pro
     }, null, 2)}\n`,
     "pnpm-workspace.yaml": "packages:\n  - apps/*\n  - packages/*\n",
     "tsconfig.json": `${JSON.stringify({ compilerOptions: { target: "ES2022", module: "NodeNext", moduleResolution: "NodeNext", strict: true, skipLibCheck: true } }, null, 2)}\n`,
+    "AGENTS.md": "# Monorepo agent coordination\n\nRead the role instruction before working in its owned workspace. Split independent work by ownership and ask the reviewer role to inspect completed changes.\n\n- Frontend: `agents/frontend.md` owns `apps/web`.\n- Backend: `agents/backend.md` owns `apps/api`.\n- Shared: `agents/shared.md` owns `packages/shared`.\n- Reviewer: `agents/reviewer.md` is review-only.\n",
+    "agents/frontend.md": "# Frontend agent\n\nOwn `apps/web` and its React/Vite behavior. Keep changes scoped to the web app unless coordinating an interface change with the shared or backend role. Verify with `pnpm --filter ./apps/web build`.\n",
+    "agents/backend.md": "# Backend agent\n\nOwn `apps/api`, Express routes, validation, and API contracts. Keep secrets out of source and expose health through `GET /health`. Verify with `pnpm --filter ./apps/api build`.\n",
+    "agents/shared.md": "# Shared agent\n\nOwn `packages/shared` public TypeScript exports. Make backward-compatible changes by default and coordinate any contract changes with frontend and backend roles. Verify with `pnpm --filter ./packages/shared build`.\n",
+    "agents/reviewer.md": "# Reviewer agent\n\nThis is a review-only role: do not implement source changes. Inspect the completed diff for cross-workspace contracts, tests, security, and build impact. Report findings with file paths and severity.\n",
     "apps/api/package.json": `${JSON.stringify({
       name: `${packageScope}/api`, private: true, type: "module",
       scripts: { dev: "tsx watch src/server.ts", build: "tsc -p tsconfig.json", start: "node dist/server.js", test: "vitest run" },
@@ -99,7 +105,9 @@ export const planCreate = async (input: CreateInput): Promise<CreatePlan> => {
     plugin: { id: "repo-standard", version: "0.1.0" },
     project: { name: input.name, type: input.projectType, root: "." },
     composition: { ...(preset === undefined ? {} : { preset: `${preset.id}@${preset.version}` }), stack: { ...preset?.selection?.stack, ...input.stack }, capabilities: [...input.capabilities] },
-    agents: { mode: input.agentMode, enabled: [], adapters: [] },
+    agents: input.projectType === "monorepo"
+      ? { mode: input.agentMode, enabled: monorepoAgentIds, adapters: ["codex"] }
+      : { mode: input.agentMode, enabled: [], adapters: [] },
     flows: { defaults: [] },
     standards: { overrides: [] },
     managed: { stateFile: ".repo-standard/managed-state.yaml" }

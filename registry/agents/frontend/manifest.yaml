@@ -1,0 +1,8 @@
+schemaVersion: 1
+id: frontend
+kind: agent
+version: 1.0.0
+displayName: Frontend Agent
+description: Owns React and Vite work in apps/web.
+agentHints:
+  recommended: [reviewer]

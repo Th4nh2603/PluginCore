@@ -1,0 +1,8 @@
+schemaVersion: 1
+id: backend
+kind: agent
+version: 1.0.0
+displayName: Backend Agent
+description: Owns Express API work in apps/api.
+agentHints:
+  recommended: [reviewer]

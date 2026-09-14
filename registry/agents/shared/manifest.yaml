@@ -1,0 +1,8 @@
+schemaVersion: 1
+id: shared
+kind: agent
+version: 1.0.0
+displayName: Shared Package Agent
+description: Owns TypeScript contracts in packages/shared.
+agentHints:
+  recommended: [reviewer]

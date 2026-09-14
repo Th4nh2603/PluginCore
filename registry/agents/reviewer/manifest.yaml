@@ -1,0 +1,6 @@
+schemaVersion: 1
+id: reviewer
+kind: agent
+version: 1.0.0
+displayName: Reviewer Agent
+description: Reviews changes across workspace boundaries without implementing them.
