@@ -107,7 +107,7 @@ describe("runCli", () => {
     try {
       const output: string[] = [];
       const exitCode = await runCli(["create", "web-demo", "--target", targetDirectory], {
-        write: (line) => output.push(line),
+        write: (line: string) => output.push(line),
         prompt: {
           input: async () => "unused",
           select: async (message: string) => message === "Project type" ? "web" : "recommended-web",
