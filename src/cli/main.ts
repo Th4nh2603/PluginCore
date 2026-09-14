@@ -97,8 +97,7 @@ export const runCli = async (argv: readonly string[], io: CliIo): Promise<number
     }
     const plan = await planCreate({ name, projectType, targetDirectory: typeof targetDirectory === "string" ? targetDirectory : path.resolve(process.cwd(), name), registryRoot, ...(preset === undefined ? {} : { preset }), stack: {}, capabilities: [], agentMode: "automatic" });
     io.write(plan.preview);
-    const confirmed = command.options.get("--yes") === true || (interactive !== undefined && await interactive.confirm("Create this repository?"));
-    if (!confirmed) {
+    if (interactive === undefined && command.options.get("--yes") !== true) {
       io.write("Review the plan and re-run with --yes to create files.");
       return 2;
     }

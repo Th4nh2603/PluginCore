@@ -204,4 +204,26 @@ describe("runCli", () => {
       await rm(root, { recursive: true, force: true });
     }
   });
+
+  it("creates immediately after choosing Custom without a final confirmation", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-custom-immediate-"));
+    const targetDirectory = path.join(root, "web-demo");
+
+    try {
+      const exitCode = await runCli(["create", "web-demo", "--target", targetDirectory], {
+        write: () => undefined,
+        prompt: {
+          input: async () => "unused",
+          select: async (message: string) => message === "Project type" ? "web" : "",
+          confirm: async () => { throw new Error("The final create confirmation must not be requested."); }
+        },
+        generatorRunner: { run: async () => undefined }
+      } as never);
+
+      expect(exitCode).toBe(0);
+      expect(existsSync(path.join(targetDirectory, "repo.config.yaml"))).toBe(true);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });
