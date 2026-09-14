@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { mkdir } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import type { RepoConfig } from "../core/config/repo-config.js";
@@ -28,6 +28,47 @@ export interface CreatePlan {
 }
 
 const validName = /^[a-z0-9][a-z0-9-]*$/i;
+
+const writeMonorepoScaffold = async (targetDirectory: string, name: string): Promise<void> => {
+  const packageScope = `@${name}`;
+  const files: Readonly<Record<string, string>> = {
+    "package.json": `${JSON.stringify({
+      name,
+      private: true,
+      scripts: {
+        dev: "pnpm --parallel --filter ./apps/web --filter ./apps/api dev",
+        "dev:web": "pnpm --filter ./apps/web dev",
+        "dev:api": "pnpm --filter ./apps/api dev",
+        build: "pnpm -r build",
+        test: "pnpm -r test"
+      }
+    }, null, 2)}\n`,
+    "pnpm-workspace.yaml": "packages:\n  - apps/*\n  - packages/*\n",
+    "tsconfig.json": `${JSON.stringify({ compilerOptions: { target: "ES2022", module: "NodeNext", moduleResolution: "NodeNext", strict: true, skipLibCheck: true } }, null, 2)}\n`,
+    "apps/api/package.json": `${JSON.stringify({
+      name: `${packageScope}/api`, private: true, type: "module",
+      scripts: { dev: "tsx watch src/server.ts", build: "tsc -p tsconfig.json", start: "node dist/server.js", test: "vitest run" },
+      dependencies: { [`${packageScope}/shared`]: "workspace:*", express: "^5.1.0" },
+      devDependencies: { "@types/express": "^5.0.1", tsx: "^4.20.5", typescript: "^5.9.3", vitest: "^4.1.11" }
+    }, null, 2)}\n`,
+    "apps/api/tsconfig.json": `${JSON.stringify({ extends: "../../tsconfig.json", compilerOptions: { rootDir: "src", outDir: "dist" }, include: ["src"] }, null, 2)}\n`,
+    "apps/api/src/server.ts": "import express from \"express\";\n\nconst app = express();\nconst port = Number(process.env.PORT ?? 3001);\n\napp.get(\"/health\", (_request, response) => response.json({ status: \"ok\" }));\n\napp.listen(port, () => console.log(`API listening on http://localhost:${port}`));\n",
+    "packages/shared/package.json": `${JSON.stringify({
+      name: `${packageScope}/shared`, private: true, type: "module",
+      exports: "./dist/index.js", types: "./dist/index.d.ts",
+      scripts: { build: "tsc -p tsconfig.json", test: "vitest run" },
+      devDependencies: { typescript: "^5.9.3", vitest: "^4.1.11" }
+    }, null, 2)}\n`,
+    "packages/shared/tsconfig.json": `${JSON.stringify({ extends: "../../tsconfig.json", compilerOptions: { rootDir: "src", outDir: "dist", declaration: true }, include: ["src"] }, null, 2)}\n`,
+    "packages/shared/src/index.ts": "export const serviceName = \"shared\";\n"
+  };
+
+  await Promise.all(Object.entries(files).map(async ([relativePath, content]) => {
+    const filePath = path.join(targetDirectory, relativePath);
+    await mkdir(path.dirname(filePath), { recursive: true });
+    await writeFile(filePath, content, "utf8");
+  }));
+};
 
 export const planCreate = async (input: CreateInput): Promise<CreatePlan> => {
   if (!validName.test(input.name)) {
@@ -78,7 +119,12 @@ export const applyCreatePlan = async (plan: CreatePlan, runner: GeneratorRunner 
   }
 
   await mkdir(plan.targetDirectory, { recursive: false });
-  if (plan.config.composition.stack.framework === "vite@8") {
+  if (plan.config.project.type === "monorepo") {
+    await writeMonorepoScaffold(plan.targetDirectory, plan.config.project.name);
+    const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+    await runner.run(pnpm, ["create", "vite", "apps/web", "--template", "react-ts", "--no-interactive"], plan.targetDirectory);
+    await runner.run(pnpm, ["install"], plan.targetDirectory);
+  } else if (plan.config.composition.stack.framework === "vite@8") {
     await runner.run(process.platform === "win32" ? "pnpm.cmd" : "pnpm", ["create", "vite", ".", "--template", "react-ts", "--no-interactive"], plan.targetDirectory);
   }
   const configPath = path.join(plan.targetDirectory, "repo.config.yaml");

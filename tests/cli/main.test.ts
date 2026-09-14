@@ -156,6 +156,31 @@ describe("runCli", () => {
     }
   });
 
+  it("shows startup guidance after creating a Monorepo", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-monorepo-cli-"));
+    const targetDirectory = path.join(root, "platform");
+    const output: string[] = [];
+
+    try {
+      const exitCode = await runCli(["create", "platform", "--target", targetDirectory], {
+        write: (line: string) => output.push(line),
+        prompt: {
+          input: async () => "unused",
+          select: async (message: string) => message === "Project type" ? "monorepo" : "recommended-monorepo",
+          confirm: async () => true
+        },
+        generatorRunner: { run: async () => undefined }
+      } as never);
+
+      expect(exitCode).toBe(0);
+      expect(output.join("\n")).toContain("apps/web");
+      expect(output.join("\n")).toContain("apps/api");
+      expect(output.join("\n")).toContain("pnpm dev");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("falls back to Custom when the recommended stack is declined", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-custom-"));
     const targetDirectory = path.join(root, "web-demo");

@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -75,5 +75,33 @@ describe("planCreate", () => {
 
     expect(commands).toEqual([[(process.platform === "win32" ? "pnpm.cmd" : "pnpm"), "create", "vite", ".", "--template", "react-ts", "--no-interactive", targetDirectory]]);
     expect(existsSync(path.join(targetDirectory, "repo.config.yaml"))).toBe(true);
+  });
+
+  it("writes a Monorepo workspace with API and shared package sources", async () => {
+    const root = await makeRoot();
+    const targetDirectory = path.join(root, "platform");
+    const plan = await planCreate({ name: "platform", projectType: "monorepo", targetDirectory, registryRoot: path.join(process.cwd(), "registry"), preset: "recommended-monorepo", stack: {}, agentMode: "automatic", capabilities: [] });
+
+    await applyCreatePlan(plan, { run: async () => undefined });
+
+    expect(existsSync(path.join(targetDirectory, "pnpm-workspace.yaml"))).toBe(true);
+    expect(JSON.parse(await readFile(path.join(targetDirectory, "package.json"), "utf8")).packageManager).toBeUndefined();
+    expect(await readFile(path.join(targetDirectory, "apps", "api", "src", "server.ts"), "utf8")).toContain("express");
+    expect(await readFile(path.join(targetDirectory, "packages", "shared", "src", "index.ts"), "utf8")).toContain("export");
+  });
+
+  it("generates the Web workspace and installs Monorepo dependencies", async () => {
+    const root = await makeRoot();
+    const targetDirectory = path.join(root, "platform");
+    const plan = await planCreate({ name: "platform", projectType: "monorepo", targetDirectory, registryRoot: path.join(process.cwd(), "registry"), preset: "recommended-monorepo", stack: {}, agentMode: "automatic", capabilities: [] });
+    const commands: string[][] = [];
+    const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+
+    await applyCreatePlan(plan, { run: async (command, args, cwd) => { commands.push([command, ...args, cwd]); } });
+
+    expect(commands).toEqual([
+      [pnpm, "create", "vite", "apps/web", "--template", "react-ts", "--no-interactive", targetDirectory],
+      [pnpm, "install", targetDirectory]
+    ]);
   });
 });

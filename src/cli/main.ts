@@ -104,6 +104,11 @@ export const runCli = async (argv: readonly string[], io: CliIo): Promise<number
     }
     await applyCreatePlan(plan, io.generatorRunner);
     io.write(`Created ${plan.targetDirectory}.`);
+    if (plan.config.project.type === "monorepo") {
+      io.write("Workspaces: apps/web (Vite + React), apps/api (Express), packages/shared (TypeScript).");
+      io.write(`Next: cd "${plan.targetDirectory}"`);
+      io.write("Then run: pnpm dev");
+    }
     return 0;
   }
 
