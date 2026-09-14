@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { buildInfo } from "../application/info-service.js";
 import { runDoctor } from "../application/doctor-service.js";
 import { applyCreatePlan, planCreate } from "../application/create-service.js";
+import type { GeneratorRunner } from "../application/generator-runner.js";
 import { parseArguments } from "./arguments.js";
 import { helpText, infoText } from "./presentation.js";
 import { loadRegistry } from "../core/registry/registry-loader.js";
@@ -13,6 +14,7 @@ import { loadRegistry } from "../core/registry/registry-loader.js";
 export interface CliIo {
   write(line: string): void;
   prompt?: CliPrompt;
+  generatorRunner?: GeneratorRunner;
 }
 
 export interface CliPrompt {
@@ -97,7 +99,7 @@ export const runCli = async (argv: readonly string[], io: CliIo): Promise<number
       io.write("Review the plan and re-run with --yes to create files.");
       return 2;
     }
-    await applyCreatePlan(plan);
+    await applyCreatePlan(plan, io.generatorRunner);
     io.write(`Created ${plan.targetDirectory}.`);
     return 0;
   }

@@ -60,4 +60,20 @@ describe("planCreate", () => {
     expect(plan.config.composition.preset).toBe("recommended-web@1.0.0");
     expect(plan.config.composition.stack).toEqual({ framework: "nextjs@15", language: "typescript@5", packageManager: "pnpm@10" });
   });
+
+  it("runs the Vite React TypeScript generator before writing managed state", async () => {
+    const root = await makeRoot();
+    const targetDirectory = path.join(root, "web-demo");
+    const plan = await planCreate({ name: "web-demo", projectType: "web", targetDirectory, registryRoot: path.join(process.cwd(), "registry"), preset: "recommended-web", stack: {}, agentMode: "automatic", capabilities: [] });
+    const commands: string[][] = [];
+
+    await applyCreatePlan(plan, {
+      run: async (command, args, cwd) => {
+        commands.push([command, ...args, cwd]);
+      }
+    });
+
+    expect(commands).toEqual([[(process.platform === "win32" ? "pnpm.cmd" : "pnpm"), "create", "vite", ".", "--template", "react-ts", "--no-interactive", targetDirectory]]);
+    expect(existsSync(path.join(targetDirectory, "repo.config.yaml"))).toBe(true);
+  });
 });

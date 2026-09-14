@@ -90,7 +90,8 @@ describe("runCli", () => {
           input: async () => "interactive-demo",
           select: async () => "empty",
           confirm: async () => true
-        }
+        },
+        generatorRunner: { run: async () => undefined }
       } as never);
 
       expect(exitCode).toBe(0);
@@ -112,11 +113,12 @@ describe("runCli", () => {
           input: async () => "unused",
           select: async (message: string) => message === "Project type" ? "web" : "recommended-web",
           confirm: async () => true
-        }
+        },
+        generatorRunner: { run: async () => undefined }
       } as never);
 
       expect(exitCode).toBe(0);
-      expect(output.join("\n")).toContain("Framework: nextjs@15");
+      expect(output.join("\n")).toContain("Framework: vite@8");
       expect(output.join("\n")).toContain("Testing: vitest@4");
       expect((await import("yaml")).parse(await (await import("node:fs/promises")).readFile(path.join(targetDirectory, "repo.config.yaml"), "utf8")).composition.preset).toBe("recommended-web@1.0.0");
     } finally {

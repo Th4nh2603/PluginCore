@@ -6,6 +6,7 @@ import type { RepoConfig } from "../core/config/repo-config.js";
 import { RepositoryStandardError } from "../core/errors.js";
 import { loadRegistry } from "../core/registry/registry-loader.js";
 import { createManagedState, writeYamlAtomically } from "./project-state.js";
+import { defaultGeneratorRunner, type GeneratorRunner } from "./generator-runner.js";
 import { stringify } from "yaml";
 
 export interface CreateInput {
@@ -71,12 +72,15 @@ export const planCreate = async (input: CreateInput): Promise<CreatePlan> => {
   };
 };
 
-export const applyCreatePlan = async (plan: CreatePlan): Promise<void> => {
+export const applyCreatePlan = async (plan: CreatePlan, runner: GeneratorRunner = defaultGeneratorRunner): Promise<void> => {
   if (existsSync(plan.targetDirectory)) {
     throw new RepositoryStandardError("CONFIG_INVALID", `Target directory already exists: ${plan.targetDirectory}.`);
   }
 
   await mkdir(plan.targetDirectory, { recursive: false });
+  if (plan.config.composition.stack.framework === "vite@8") {
+    await runner.run(process.platform === "win32" ? "pnpm.cmd" : "pnpm", ["create", "vite", ".", "--template", "react-ts", "--no-interactive"], plan.targetDirectory);
+  }
   const configPath = path.join(plan.targetDirectory, "repo.config.yaml");
   const configText = stringify(plan.config);
   await writeYamlAtomically(configPath, plan.config);
