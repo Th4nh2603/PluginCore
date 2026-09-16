@@ -40,6 +40,6 @@ Usage:
   repo --help
   repo info
   repo doctor
-  repo create <name>`;
+  repo create <name> [--auth custom|clerk]`;
 
 export const infoText = (info: PluginInfo): string => `${info.id} ${info.version}`;

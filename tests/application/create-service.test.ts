@@ -127,6 +127,51 @@ describe("planCreate", () => {
     expect(await readFile(path.join(targetDirectory, "packages", "shared", "src", "index.ts"), "utf8")).toContain("export");
   });
 
+  it("uses custom authentication by default for a Monorepo", async () => {
+    const root = await makeRoot();
+    const targetDirectory = path.join(root, "platform");
+    const plan = await planCreate({ name: "platform", projectType: "monorepo", targetDirectory, registryRoot: path.join(process.cwd(), "registry"), preset: "recommended-monorepo", stack: {}, agentMode: "automatic", capabilities: [] });
+
+    await applyCreatePlan(plan, { run: async () => undefined });
+
+    expect(plan.config.composition.authentication).toBe("custom");
+    expect(await readFile(path.join(targetDirectory, "apps", "api", "src", "auth", "password.ts"), "utf8")).toContain("argon2id as 2");
+  });
+
+  it("rejects an unsupported authentication provider before creating a plan", async () => {
+    const root = await makeRoot();
+
+    await expect(planCreate({ name: "platform", projectType: "monorepo", targetDirectory: path.join(root, "platform"), registryRoot: path.join(process.cwd(), "registry"), preset: "recommended-monorepo", stack: {}, agentMode: "automatic", capabilities: [], authentication: "firebase" as never }))
+      .rejects.toThrow("Authentication must be either custom or clerk.");
+  });
+
+  it("generates a Clerk authentication scaffold when selected", async () => {
+    const root = await makeRoot();
+    const targetDirectory = path.join(root, "platform");
+    const plan = await planCreate({ name: "platform", projectType: "monorepo", targetDirectory, registryRoot: path.join(process.cwd(), "registry"), preset: "recommended-monorepo", stack: {}, agentMode: "automatic", capabilities: [], authentication: "clerk" });
+    const commands: string[][] = [];
+
+    await applyCreatePlan(plan, { run: async (command, args, cwd) => { commands.push([command, ...args, cwd]); } });
+
+    expect(plan.config.composition.authentication).toBe("clerk");
+    expect(await readFile(path.join(targetDirectory, "apps", "web", ".env.example"), "utf8")).toContain("VITE_CLERK_PUBLISHABLE_KEY");
+    expect(await readFile(path.join(targetDirectory, "apps", "api", ".env.example"), "utf8")).toContain("CLERK_SECRET_KEY");
+    expect(existsSync(path.join(targetDirectory, "apps", "api", "src", "auth", "router.ts"))).toBe(false);
+    expect(existsSync(path.join(targetDirectory, "apps", "api", "src", "auth", "password.ts"))).toBe(false);
+    const webPackage = JSON.parse(await readFile(path.join(targetDirectory, "apps", "web", "package.json"), "utf8"));
+    expect(webPackage.dependencies["@clerk/react"]).toBe("^6.16.1");
+    const apiPackage = JSON.parse(await readFile(path.join(targetDirectory, "apps", "api", "package.json"), "utf8"));
+    expect(apiPackage.dependencies["@clerk/express"]).toBe("^2.1.69");
+    expect(commands.map((command) => command.slice(1, -1))).not.toContainEqual(["--filter", "./apps/api", "exec", "prisma", "generate"]);
+    const clerkApp = await readFile(path.join(targetDirectory, "apps", "web", "src", "App.tsx"), "utf8");
+    expect(clerkApp).toContain("useAuth");
+    expect(clerkApp).toContain("getToken()");
+    expect(clerkApp).toContain("Authorization: `Bearer ${token}`");
+    expect(clerkApp).toContain("/auth/me");
+    const clerkServer = await readFile(path.join(targetDirectory, "apps", "api", "src", "server.ts"), "utf8");
+    expect(clerkServer).toContain("isAuthenticated");
+  });
+
   it("generates the Web workspace and installs Monorepo dependencies", async () => {
     const root = await makeRoot();
     const targetDirectory = path.join(root, "platform");

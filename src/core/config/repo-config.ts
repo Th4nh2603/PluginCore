@@ -31,6 +31,7 @@ export const RepoConfigSchema = z
     composition: z.object({
       preset: extensionReference.optional(),
       stack: z.record(z.string(), extensionReference),
+      authentication: z.enum(["custom", "clerk"]).optional(),
       capabilities: z.array(capabilityReference).optional()
     }),
     agents: z.object({

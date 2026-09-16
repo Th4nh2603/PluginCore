@@ -75,6 +75,15 @@ export const runCli = async (argv: readonly string[], io: CliIo): Promise<number
       return 2;
     }
     const configuredPreset = command.options.get("--preset");
+    const configuredAuthentication = command.options.get("--auth");
+    if (configuredAuthentication !== undefined && configuredAuthentication !== "custom" && configuredAuthentication !== "clerk") {
+      io.write("Authentication must be either custom or clerk.");
+      return 2;
+    }
+    if (configuredAuthentication !== undefined && projectType !== "monorepo") {
+      io.write("Authentication selection is supported only for the monorepo project type.");
+      return 2;
+    }
     const compatiblePresets = registry?.list("preset").filter((preset) => {
       const projectTypes = preset.compatibility?.projectTypes;
       return Array.isArray(projectTypes) && projectTypes.includes(projectType);
@@ -95,7 +104,19 @@ export const runCli = async (argv: readonly string[], io: CliIo): Promise<number
         io.write("Using Custom stack configuration.");
       }
     }
-    const plan = await planCreate({ name, projectType, targetDirectory: typeof targetDirectory === "string" ? targetDirectory : path.resolve(process.cwd(), name), registryRoot, ...(preset === undefined ? {} : { preset }), stack: {}, capabilities: [], agentMode: "automatic" });
+    const authentication = projectType !== "monorepo"
+      ? undefined
+      : configuredAuthentication === "clerk"
+        ? "clerk" as const
+        : configuredAuthentication === "custom" || interactive === undefined
+          ? "custom" as const
+          : (await interactive.select("Authentication", [
+              { name: "Custom (JWT, Argon2id, Prisma)", value: "custom" },
+              { name: "Clerk (managed authentication)", value: "clerk" }
+            ])) === "clerk"
+              ? "clerk" as const
+              : "custom" as const;
+    const plan = await planCreate({ name, projectType, targetDirectory: typeof targetDirectory === "string" ? targetDirectory : path.resolve(process.cwd(), name), registryRoot, ...(preset === undefined ? {} : { preset }), ...(authentication === undefined ? {} : { authentication }), stack: {}, capabilities: [], agentMode: "automatic" });
     io.write(plan.preview);
     if (interactive === undefined && command.options.get("--yes") !== true) {
       io.write("Review the plan and re-run with --yes to create files.");

@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import type { RepoConfig } from "../core/config/repo-config.js";
@@ -8,6 +8,8 @@ import { loadRegistry } from "../core/registry/registry-loader.js";
 import { createManagedState, writeYamlAtomically } from "./project-state.js";
 import { defaultGeneratorRunner, type GeneratorRunner } from "./generator-runner.js";
 import { stringify } from "yaml";
+
+export type AuthenticationProvider = "custom" | "clerk";
 
 export interface CreateInput {
   readonly name: string;
@@ -18,6 +20,7 @@ export interface CreateInput {
   readonly stack: Readonly<Record<string, string>>;
   readonly capabilities: readonly { readonly id: string; readonly version: string; readonly configRef?: string }[];
   readonly agentMode: RepoConfig["agents"]["mode"];
+  readonly authentication?: AuthenticationProvider;
 }
 
 export interface CreatePlan {
@@ -107,6 +110,42 @@ const writeMonorepoWebAuthScaffold = async (targetDirectory: string): Promise<vo
   }));
 };
 
+const writeMonorepoClerkScaffold = async (targetDirectory: string, name: string): Promise<void> => {
+  const packageScope = `@${name}`;
+  await Promise.all([
+    rm(path.join(targetDirectory, "apps", "api", "prisma"), { recursive: true, force: true }),
+    rm(path.join(targetDirectory, "apps", "api", "src", "auth"), { recursive: true, force: true }),
+    rm(path.join(targetDirectory, "apps", "web", "src", "auth"), { recursive: true, force: true })
+  ]);
+
+  const files: Readonly<Record<string, string>> = {
+    "apps/api/package.json": `${JSON.stringify({
+      name: `${packageScope}/api`, private: true, type: "module",
+      scripts: { dev: "tsx watch src/server.ts", build: "tsc -p tsconfig.json", start: "node dist/server.js", test: "vitest run" },
+      dependencies: { [`${packageScope}/shared`]: "workspace:*", "@clerk/express": "^2.1.69", cors: "^2.8.5", dotenv: "^17.4.2", express: "^5.1.0", helmet: "^8.3.0" },
+      devDependencies: { "@types/cors": "^2.8.19", "@types/express": "^5.0.1", "@types/node": "^22.18.12", tsx: "^4.20.5", typescript: "^5.9.3", vitest: "^4.1.11" }
+    }, null, 2)}\n`,
+    "apps/api/.env.example": "CLERK_SECRET_KEY=sk_test_replace_with_your_clerk_secret_key\nCLERK_PUBLISHABLE_KEY=pk_test_replace_with_your_clerk_publishable_key\nWEB_ORIGIN=http://localhost:5173\nPORT=3001\n",
+    "apps/api/.env": "CLERK_SECRET_KEY=\nCLERK_PUBLISHABLE_KEY=\nWEB_ORIGIN=http://localhost:5173\nPORT=3001\n",
+    "apps/api/src/server.ts": "import \"dotenv/config\";\n\nimport { clerkMiddleware, getAuth } from \"@clerk/express\";\nimport cors from \"cors\";\nimport express from \"express\";\nimport helmet from \"helmet\";\n\nconst app = express();\napp.use(helmet());\napp.use(cors({ origin: process.env.WEB_ORIGIN ?? \"http://localhost:5173\" }));\napp.use(express.json());\napp.use(clerkMiddleware());\napp.get(\"/health\", (_request, response) => response.json({ status: \"ok\" }));\napp.get(\"/auth/me\", (request, response) => { const { isAuthenticated, userId } = getAuth(request); if (!isAuthenticated || !userId) { response.status(401).json({ error: \"Unauthorized\" }); return; } response.json({ userId }); });\napp.listen(Number(process.env.PORT ?? 3001), () => console.log(\"API listening on http://localhost:3001\"));\n",
+    "apps/web/package.json": `${JSON.stringify({
+      name: `${packageScope}/web`, private: true, type: "module",
+      scripts: { dev: "vite", build: "tsc -b && vite build", preview: "vite preview" },
+      dependencies: { "@clerk/react": "^6.16.1", react: "^19.2.0", "react-dom": "^19.2.0" },
+      devDependencies: { "@types/node": "^22.18.12", "@types/react": "^19.2.2", "@types/react-dom": "^19.2.2", "@vitejs/plugin-react": "^5.0.4", typescript: "^5.9.3", vite: "^8.0.0" }
+    }, null, 2)}\n`,
+    "apps/web/.env.example": "VITE_CLERK_PUBLISHABLE_KEY=pk_test_replace_with_your_clerk_publishable_key\n",
+    "apps/web/src/App.tsx": "import { Show, SignInButton, SignUpButton, UserButton, useAuth } from \"@clerk/react\";\nimport { useState } from \"react\";\n\nconst apiOrigin = import.meta.env.VITE_API_ORIGIN ?? \"http://localhost:3001\";\n\nconst AuthenticatedWorkspace = () => {\n  const { getToken, isLoaded, isSignedIn, userId } = useAuth();\n  const [apiUserId, setApiUserId] = useState<string>();\n  const [error, setError] = useState<string>();\n  const [checking, setChecking] = useState(false);\n  const verifyApiSession = async () => {\n    setChecking(true); setError(undefined);\n    try {\n      const token = await getToken();\n      if (!token) throw new Error(\"No Clerk session token is available.\");\n      const response = await fetch(`${apiOrigin}/auth/me`, { headers: { Authorization: `Bearer ${token}` } });\n      if (!response.ok) throw new Error(\"The API could not verify your Clerk session.\");\n      setApiUserId((await response.json() as { userId: string }).userId);\n    } catch (reason) { setError(reason instanceof Error ? reason.message : \"Unable to verify the API session.\"); }\n    finally { setChecking(false); }\n  };\n  if (!isLoaded || !isSignedIn) return null;\n  return <section><UserButton /><h1>Authenticated workspace</h1><p>Signed in to Clerk as {userId}.</p><button type=\"button\" onClick={() => void verifyApiSession()} disabled={checking}>{checking ? \"Checking API…\" : \"Verify API session\"}</button>{apiUserId && <p>API verified user: {apiUserId}</p>}{error && <p role=\"alert\">{error}</p>}</section>;\n};\n\nexport default function App() { return <main><Show when=\"signed-out\"><h1>Welcome</h1><SignInButton /><SignUpButton /></Show><Show when=\"signed-in\"><AuthenticatedWorkspace /></Show></main>; }\n",
+    "apps/web/src/main.tsx": "import { StrictMode } from \"react\";\nimport { createRoot } from \"react-dom/client\";\nimport { ClerkProvider } from \"@clerk/react\";\nimport \"./index.css\";\nimport App from \"./App\";\n\nconst publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;\nif (!publishableKey) throw new Error(\"Set VITE_CLERK_PUBLISHABLE_KEY in .env\");\ncreateRoot(document.getElementById(\"root\")!).render(<StrictMode><ClerkProvider publishableKey={publishableKey}><App /></ClerkProvider></StrictMode>);\n"
+  };
+
+  await Promise.all(Object.entries(files).map(async ([relativePath, content]) => {
+    const filePath = path.join(targetDirectory, relativePath);
+    await mkdir(path.dirname(filePath), { recursive: true });
+    await writeFile(filePath, content, "utf8");
+  }));
+};
+
 export const planCreate = async (input: CreateInput): Promise<CreatePlan> => {
   if (!validName.test(input.name)) {
     throw new RepositoryStandardError("CONFIG_INVALID", "Project name must use letters, numbers, and hyphens.");
@@ -130,12 +169,19 @@ export const planCreate = async (input: CreateInput): Promise<CreatePlan> => {
   if (Array.isArray(supportedProjectTypes) && !supportedProjectTypes.includes(input.projectType)) {
     throw new RepositoryStandardError("CONFIG_INVALID", `Preset "${input.preset}" is not compatible with ${input.projectType}.`);
   }
+  if (input.authentication !== undefined && input.authentication !== "custom" && input.authentication !== "clerk") {
+    throw new RepositoryStandardError("CONFIG_INVALID", "Authentication must be either custom or clerk.");
+  }
+  if (input.authentication !== undefined && input.projectType !== "monorepo") {
+    throw new RepositoryStandardError("CONFIG_INVALID", "Authentication selection is supported only for the monorepo project type.");
+  }
+  const authentication = input.projectType === "monorepo" ? input.authentication ?? "custom" : undefined;
 
   const config: RepoConfig = {
     schemaVersion: 1,
     plugin: { id: "repo-standard", version: "0.1.0" },
     project: { name: input.name, type: input.projectType, root: "." },
-    composition: { ...(preset === undefined ? {} : { preset: `${preset.id}@${preset.version}` }), stack: { ...preset?.selection?.stack, ...input.stack }, capabilities: [...input.capabilities] },
+    composition: { ...(preset === undefined ? {} : { preset: `${preset.id}@${preset.version}` }), stack: { ...preset?.selection?.stack, ...input.stack }, ...(authentication === undefined ? {} : { authentication }), capabilities: [...input.capabilities] },
     agents: input.projectType === "monorepo"
       ? { mode: input.agentMode, enabled: monorepoAgentIds, adapters: ["codex"] }
       : { mode: input.agentMode, enabled: [], adapters: [] },
@@ -162,9 +208,15 @@ export const applyCreatePlan = async (plan: CreatePlan, runner: GeneratorRunner 
     const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
     await runner.run(pnpm, ["create", "vite", "apps/web", "--template", "react-ts", "--no-interactive"], plan.targetDirectory);
     await writeMonorepoScaffold(plan.targetDirectory, plan.config.project.name);
-    await writeMonorepoWebAuthScaffold(plan.targetDirectory);
+    if (plan.config.composition.authentication === "clerk") {
+      await writeMonorepoClerkScaffold(plan.targetDirectory, plan.config.project.name);
+    } else {
+      await writeMonorepoWebAuthScaffold(plan.targetDirectory);
+    }
     await runner.run(pnpm, ["install"], plan.targetDirectory);
-    await runner.run(pnpm, ["--filter", "./apps/api", "exec", "prisma", "generate"], plan.targetDirectory);
+    if (plan.config.composition.authentication !== "clerk") {
+      await runner.run(pnpm, ["--filter", "./apps/api", "exec", "prisma", "generate"], plan.targetDirectory);
+    }
   } else if (plan.config.composition.stack.framework === "vite@8") {
     await runner.run(process.platform === "win32" ? "pnpm.cmd" : "pnpm", ["create", "vite", ".", "--template", "react-ts", "--no-interactive"], plan.targetDirectory);
   }

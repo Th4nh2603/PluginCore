@@ -181,6 +181,70 @@ describe("runCli", () => {
     }
   });
 
+  it("uses the authentication selected during interactive Monorepo creation", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-auth-choice-"));
+    const targetDirectory = path.join(root, "platform");
+
+    try {
+      const exitCode = await runCli(["create", "platform", "--type", "monorepo", "--target", targetDirectory], {
+        write: () => undefined,
+        prompt: {
+          input: async () => "unused",
+          select: async (message: string) => {
+            if (message === "Stack configuration") return "recommended-monorepo";
+            if (message === "Authentication") return "clerk";
+            return "";
+          },
+          confirm: async () => true
+        },
+        generatorRunner: { run: async () => undefined }
+      } as never);
+
+      expect(exitCode).toBe(0);
+      const config = (await import("yaml")).parse(await (await import("node:fs/promises")).readFile(path.join(targetDirectory, "repo.config.yaml"), "utf8"));
+      expect(config.composition.authentication).toBe("clerk");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects an unsupported authentication provider", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-invalid-auth-"));
+    const targetDirectory = path.join(root, "platform");
+    const output: string[] = [];
+
+    try {
+      const exitCode = await runCli(["create", "platform", "--type", "monorepo", "--auth", "firebase", "--target", targetDirectory, "--yes"], {
+        write: (line) => output.push(line),
+        generatorRunner: { run: async () => undefined }
+      });
+
+      expect(exitCode).toBe(2);
+      expect(output.join("\n")).toContain("Authentication must be either custom or clerk.");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects authentication selection for a non-Monorepo project", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-web-auth-"));
+    const targetDirectory = path.join(root, "web-demo");
+    const output: string[] = [];
+
+    try {
+      const exitCode = await runCli(["create", "web-demo", "--type", "web", "--auth", "clerk", "--target", targetDirectory, "--yes"], {
+        write: (line) => output.push(line),
+        generatorRunner: { run: async () => undefined }
+      });
+
+      expect(exitCode).toBe(2);
+      expect(existsSync(targetDirectory)).toBe(false);
+      expect(output.join("\n")).toContain("Authentication selection is supported only for the monorepo project type.");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("falls back to Custom when the recommended stack is declined", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-custom-"));
     const targetDirectory = path.join(root, "web-demo");

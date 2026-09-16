@@ -28,3 +28,4 @@ pnpm build
 
 - [Architecture specification](docs/superpowers/specs/2026-09-10-repository-standard-plugin-design.md)
 - [Phase 2 implementation plan](docs/superpowers/plans/2026-09-11-core-scaffold.md)
+- [MarketingDashboard data reference](docs/marketing-dashboard-reference.md)
