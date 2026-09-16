@@ -168,6 +168,15 @@ describe("planCreate", () => {
     expect(clerkApp).toContain("getToken()");
     expect(clerkApp).toContain("Authorization: `Bearer ${token}`");
     expect(clerkApp).toContain("/auth/me");
+    expect(clerkApp).toContain("<SignIn path={signInUrl} />");
+    expect(clerkApp).toContain("window.location.pathname");
+    expect(clerkApp).toContain("const signInUrl = import.meta.env.VITE_CLERK_SIGN_IN_URL ?? \"/sign-in\"");
+    expect(clerkApp).toContain("path === signInUrl");
+    expect(await readFile(path.join(targetDirectory, "apps", "web", ".env.example"), "utf8")).toContain("VITE_CLERK_SIGN_IN_URL=/sign-in");
+    const clerkMain = await readFile(path.join(targetDirectory, "apps", "web", "src", "main.tsx"), "utf8");
+    expect(clerkMain).toContain("const signInUrl = import.meta.env.VITE_CLERK_SIGN_IN_URL ?? \"/sign-in\"");
+    expect(clerkMain).toContain("signInUrl={signInUrl}");
+    expect(clerkMain).toContain('signInFallbackRedirectUrl="/"');
     const clerkServer = await readFile(path.join(targetDirectory, "apps", "api", "src", "server.ts"), "utf8");
     expect(clerkServer).toContain("isAuthenticated");
   });
