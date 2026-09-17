@@ -4,6 +4,7 @@ import {
   formatCompositionPreview,
   formatCreateSuccess,
   formatPresetPreview,
+  formatSelectInstruction,
   formatSelectOption
 } from "../../src/cli/presentation.js";
 
@@ -75,6 +76,11 @@ describe("formatSelectOption", () => {
 
     expect(formatSelectOption(4, { name: "Recommended", value: "recommended", tone: "recommended" }, true)).toContain("\u001B[92m");
     expect(formatSelectOption(5, { name: "Custom", value: "custom", tone: "custom" }, true)).toContain("\u001B[93m");
+  });
+
+  it("shows the valid numeric range instead of an ambiguous number prompt", () => {
+    expect(formatSelectInstruction(2, false)).toBe("Select [1-2]");
+    expect(formatSelectInstruction(4, false)).toBe("Select [1-4]");
   });
 });
 
