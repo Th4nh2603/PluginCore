@@ -8,6 +8,7 @@ on:
     branches:
       - main
 
+# Temporary branch verification for the architecture refactor.
 jobs:
   verify:
     runs-on: ubuntu-latest
