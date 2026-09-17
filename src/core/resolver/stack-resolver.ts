@@ -4,7 +4,7 @@ import type { Registry } from "../registry/registry-loader.js";
 
 export interface StackSelection {
   readonly slot: string;
-  readonly componentId?: string;
+  readonly componentId?: string | null;
 }
 
 export interface ResolvedStackEntry {
@@ -32,6 +32,7 @@ export interface ListStackChoicesInput extends StackContextInput {
 
 export interface ResolveStackInput extends StackContextInput {
   readonly selections: readonly StackSelection[];
+  readonly requireComplete?: boolean;
 }
 
 const configurationError = (message: string): RepositoryStandardError =>
@@ -71,7 +72,7 @@ const compatiblePair = (left: ExtensionManifest, right: ExtensionManifest): bool
 
 const selectedComponents = (registry: Registry, projectType: string, selected: readonly StackSelection[]): readonly ExtensionManifest[] =>
   selected.flatMap((selection) => {
-    if (selection.componentId === undefined) return [];
+    if (selection.componentId === undefined || selection.componentId === null) return [];
     const component = getStackComponent(registry, selection.componentId);
     if (component.stack?.slot !== selection.slot) {
       throw configurationError(`Stack component "${component.id}" belongs to slot "${component.stack?.slot}", not "${selection.slot}".`);
@@ -101,12 +102,17 @@ export const resolveStack = (input: ResolveStackInput): StackResolution => {
   const slots = projectSlots(input.registry, input.projectType);
   const slotById = new Map(slots.map((slot) => [slot.id, slot]));
   const resolved = new Map<string, ResolvedStackEntry>();
+  const explicitNone = new Set<string>();
 
   for (const selection of input.selections) {
     if (!slotById.has(selection.slot)) {
       throw configurationError(`Stack slot "${selection.slot}" is not defined for ${input.projectType}.`);
     }
     if (selection.componentId === undefined) continue;
+    if (selection.componentId === null) {
+      explicitNone.add(selection.slot);
+      continue;
+    }
 
     const component = getStackComponent(input.registry, selection.componentId);
     if (component.stack?.slot !== selection.slot) {
@@ -149,6 +155,11 @@ export const resolveStack = (input: ResolveStackInput): StackResolution => {
       if (!supportsProjectType(dependency, input.projectType)) {
         throw configurationError(`Stack component "${component.id}" requires "${dependency.id}", which is not compatible with ${input.projectType}.`);
       }
+      if (explicitNone.has(dependencySlot)) {
+        throw configurationError(
+          `Stack component "${component.id}" requires "${dependency.id}" in "${dependencySlot}", but None was selected.`
+        );
+      }
 
       const existing = resolved.get(dependencySlot);
       if (existing !== undefined && existing.id !== dependency.id) {
@@ -175,9 +186,11 @@ export const resolveStack = (input: ResolveStackInput): StackResolution => {
 
   for (const entry of [...resolved.values()]) visit(getStackComponent(input.registry, entry.id));
 
-  for (const slot of slots) {
-    if (slot.required === true && !resolved.has(slot.id)) {
-      throw configurationError(`Required stack slot "${slot.id}" has no selection.`);
+  if (input.requireComplete !== false) {
+    for (const slot of slots) {
+      if (slot.required === true && !resolved.has(slot.id)) {
+        throw configurationError(`Required stack slot "${slot.id}" has no selection.`);
+      }
     }
   }
 
