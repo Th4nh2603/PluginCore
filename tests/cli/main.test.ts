@@ -8,8 +8,15 @@ import { parse } from "yaml";
 
 import { runCli } from "../../src/cli/main.js";
 
-const readConfig = async (targetDirectory: string): Promise<Record<string, any>> =>
-  parse(await readFile(path.join(targetDirectory, "repo.config.yaml"), "utf8")) as Record<string, any>;
+interface ParsedRepoConfig {
+  readonly composition: {
+    readonly preset?: string;
+    readonly authentication?: string;
+  };
+}
+
+const readConfig = async (targetDirectory: string): Promise<ParsedRepoConfig> =>
+  parse(await readFile(path.join(targetDirectory, "repo.config.yaml"), "utf8")) as ParsedRepoConfig;
 
 const writeEmptyRegistry = async (registryRoot: string): Promise<void> => {
   await mkdir(path.join(registryRoot, "project-types", "empty"), { recursive: true });
@@ -23,18 +30,14 @@ const writeEmptyRegistry = async (registryRoot: string): Promise<void> => {
 describe("runCli", () => {
   it("prints command help without reading the filesystem", async () => {
     const output: string[] = [];
-
     const exitCode = await runCli(["--help"], { write: (line) => output.push(line) });
-
     expect(exitCode).toBe(0);
     expect(output.join("\n")).toContain("repo create <name>");
   });
 
   it("prints the plugin identifier and version", async () => {
     const output: string[] = [];
-
     const exitCode = await runCli(["info"], { write: (line) => output.push(line) });
-
     expect(exitCode).toBe(0);
     expect(output.join("\n")).toContain("repo-standard");
     expect(output.join("\n")).toContain("0.1.0");
@@ -45,13 +48,9 @@ describe("runCli", () => {
     const registryRoot = path.join(root, "registry");
     const targetDirectory = path.join(root, "demo");
     await writeEmptyRegistry(registryRoot);
-
     try {
       const output: string[] = [];
-      const exitCode = await runCli(["create", "demo", "--type", "empty", "--target", targetDirectory, "--registry", registryRoot], {
-        write: (line) => output.push(line)
-      });
-
+      const exitCode = await runCli(["create", "demo", "--type", "empty", "--target", targetDirectory, "--registry", registryRoot], { write: (line) => output.push(line) });
       expect(exitCode).toBe(2);
       expect(existsSync(targetDirectory)).toBe(false);
       expect(output.join("\n")).toContain("--yes");
@@ -65,12 +64,8 @@ describe("runCli", () => {
     const registryRoot = path.join(root, "registry");
     const targetDirectory = path.join(root, "demo");
     await writeEmptyRegistry(registryRoot);
-
     try {
-      const exitCode = await runCli(["create", "demo", "--type", "empty", "--target", targetDirectory, "--registry", registryRoot, "--yes"], {
-        write: () => undefined
-      });
-
+      const exitCode = await runCli(["create", "demo", "--type", "empty", "--target", targetDirectory, "--registry", registryRoot, "--yes"], { write: () => undefined });
       expect(exitCode).toBe(0);
       expect(existsSync(path.join(targetDirectory, "repo.config.yaml"))).toBe(true);
     } finally {
@@ -81,12 +76,8 @@ describe("runCli", () => {
   it("uses the bundled registry when --registry is omitted", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-default-registry-"));
     const targetDirectory = path.join(root, "demo");
-
     try {
-      const exitCode = await runCli(["create", "demo", "--type", "empty", "--target", targetDirectory, "--yes"], {
-        write: () => undefined
-      });
-
+      const exitCode = await runCli(["create", "demo", "--type", "empty", "--target", targetDirectory, "--yes"], { write: () => undefined });
       expect(exitCode).toBe(0);
       expect(existsSync(path.join(targetDirectory, "repo.config.yaml"))).toBe(true);
     } finally {
@@ -99,7 +90,6 @@ describe("runCli", () => {
     const registryRoot = path.join(root, "registry");
     const targetDirectory = path.join(root, "interactive-demo");
     await writeEmptyRegistry(registryRoot);
-
     try {
       const exitCode = await runCli(["create", "--target", targetDirectory, "--registry", registryRoot], {
         write: () => undefined,
@@ -115,7 +105,6 @@ describe("runCli", () => {
         },
         generatorRunner: { run: async () => undefined }
       } as never);
-
       expect(exitCode).toBe(0);
       expect(existsSync(path.join(targetDirectory, "repo.config.yaml"))).toBe(true);
     } finally {
@@ -127,7 +116,6 @@ describe("runCli", () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-recommended-"));
     const targetDirectory = path.join(root, "web-demo");
     const output: string[] = [];
-
     try {
       const exitCode = await runCli(["create", "web-demo", "--target", targetDirectory], {
         write: (line: string) => output.push(line),
@@ -143,7 +131,6 @@ describe("runCli", () => {
         },
         generatorRunner: { run: async () => undefined }
       } as never);
-
       expect(exitCode).toBe(0);
       expect(output.join("\n")).toContain("Recommended Web");
       expect(output.join("\n")).toContain("Framework: Vite");
@@ -158,7 +145,6 @@ describe("runCli", () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-monorepo-"));
     const targetDirectory = path.join(root, "monorepo-demo");
     let monorepoOption = "";
-
     try {
       const exitCode = await runCli(["create", "monorepo-demo", "--target", targetDirectory], {
         write: () => undefined,
@@ -177,7 +163,6 @@ describe("runCli", () => {
         },
         generatorRunner: { run: async () => undefined }
       } as never);
-
       expect(exitCode).toBe(0);
       expect(monorepoOption).toBe("Monorepo");
     } finally {
@@ -189,7 +174,6 @@ describe("runCli", () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-monorepo-cli-"));
     const targetDirectory = path.join(root, "platform");
     const output: string[] = [];
-
     try {
       const exitCode = await runCli(["create", "platform", "--target", targetDirectory], {
         write: (line: string) => output.push(line),
@@ -205,7 +189,6 @@ describe("runCli", () => {
         },
         generatorRunner: { run: async () => undefined }
       } as never);
-
       expect(exitCode).toBe(0);
       expect(output.join("\n")).toContain("Frontend: Vite + React");
       expect(output.join("\n")).toContain(`Next: cd "${targetDirectory}"`);
@@ -219,7 +202,6 @@ describe("runCli", () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-auth-choice-"));
     const targetDirectory = path.join(root, "platform");
     let continueSelections = 0;
-
     try {
       const exitCode = await runCli(["create", "platform", "--type", "monorepo", "--target", targetDirectory], {
         write: () => undefined,
@@ -235,7 +217,6 @@ describe("runCli", () => {
         },
         generatorRunner: { run: async () => undefined }
       } as never);
-
       expect(exitCode).toBe(0);
       const config = await readConfig(targetDirectory);
       expect(config.composition.authentication).toBe("clerk");
@@ -249,13 +230,11 @@ describe("runCli", () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-invalid-auth-"));
     const targetDirectory = path.join(root, "platform");
     const output: string[] = [];
-
     try {
       const exitCode = await runCli(["create", "platform", "--type", "monorepo", "--auth", "firebase", "--target", targetDirectory, "--yes"], {
         write: (line) => output.push(line),
         generatorRunner: { run: async () => undefined }
       });
-
       expect(exitCode).toBe(2);
       expect(output.join("\n")).toContain('Authentication capability "auth-firebase" is not available for monorepo.');
     } finally {
@@ -267,13 +246,11 @@ describe("runCli", () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-web-auth-"));
     const targetDirectory = path.join(root, "web-demo");
     const output: string[] = [];
-
     try {
       const exitCode = await runCli(["create", "web-demo", "--type", "web", "--auth", "clerk", "--target", targetDirectory, "--yes"], {
         write: (line) => output.push(line),
         generatorRunner: { run: async () => undefined }
       });
-
       expect(exitCode).toBe(2);
       expect(existsSync(targetDirectory)).toBe(false);
       expect(output.join("\n")).toContain('Authentication capability "auth-clerk" is not available for web.');
@@ -285,7 +262,6 @@ describe("runCli", () => {
   it("uses Custom setup when selected", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-custom-"));
     const targetDirectory = path.join(root, "web-demo");
-
     try {
       const exitCode = await runCli(["create", "web-demo", "--target", targetDirectory], {
         write: () => undefined,
@@ -301,7 +277,6 @@ describe("runCli", () => {
         },
         generatorRunner: { run: async () => undefined }
       } as never);
-
       expect(exitCode).toBe(0);
       expect((await readConfig(targetDirectory)).composition.preset).toBeUndefined();
     } finally {
@@ -313,7 +288,6 @@ describe("runCli", () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-custom-confirm-"));
     const targetDirectory = path.join(root, "web-demo");
     const selectMessages: string[] = [];
-
     try {
       const exitCode = await runCli(["create", "web-demo", "--target", targetDirectory], {
         write: () => undefined,
@@ -330,7 +304,6 @@ describe("runCli", () => {
         },
         generatorRunner: { run: async () => undefined }
       } as never);
-
       expect(exitCode).toBe(0);
       expect(selectMessages).toEqual(["Project type", "Setup", "Continue"]);
       expect(existsSync(path.join(targetDirectory, "repo.config.yaml"))).toBe(true);
@@ -346,7 +319,6 @@ describe("runCli", () => {
     const output: string[] = [];
     let continueCalls = 0;
     await writeEmptyRegistry(registryRoot);
-
     try {
       const exitCode = await runCli(["create", "demo", "--type", "empty", "--target", targetDirectory, "--registry", registryRoot], {
         write: (line) => output.push(line),
@@ -365,7 +337,6 @@ describe("runCli", () => {
         },
         generatorRunner: { run: async () => undefined }
       } as never);
-
       expect(exitCode).toBe(2);
       expect(continueCalls).toBe(1);
       expect(output.join("\n")).toContain("Choose Yes or Customize.");
