@@ -111,7 +111,7 @@ export const resolveCreateComposition = (input: CreateResolutionInput): CreateRe
       ...(authentication === undefined ? {} : { authentication }),
       capabilities: capabilityResolution.capabilities
     },
-    agents: input.projectType === "monorepo"
+    agents: input.projectType === "monorepo" && input.agentMode !== "none"
       ? { mode: input.agentMode, enabled: [...monorepoAgentIds], adapters: ["codex"] }
       : { mode: input.agentMode, enabled: [], adapters: [] },
     flows: { defaults: [] },
