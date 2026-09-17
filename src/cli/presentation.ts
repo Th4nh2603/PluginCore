@@ -68,6 +68,9 @@ export const conciseProjectTypeName = (displayName: string): string => (displayN
 
 export const formatPrompt = (message: string, color: boolean): string => `${paint("?", 36, color)} ${paint(message, 1, color)}`;
 
+export const formatSelectInstruction = (choiceCount: number, color: boolean): string =>
+  paint(`Select [1-${choiceCount}]`, 90, color);
+
 export const formatSelectOption = (index: number, option: SelectOption, color: boolean): string => {
   const prefix = paint(`${index}.`, 90, color);
 
