@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatPresetPreview, formatSelectOption } from "../../src/cli/presentation.js";
+import { formatCreateSuccess, formatPresetPreview, formatSelectOption } from "../../src/cli/presentation.js";
 
 describe("formatPresetPreview", () => {
   const preset = {
@@ -43,11 +43,28 @@ describe("formatSelectOption", () => {
     const api = formatSelectOption(2, { name: "API", value: "api" }, true);
     const monorepo = formatSelectOption(3, { name: "Monorepo", value: "monorepo" }, true);
 
-    expect(web).toContain("\u001B[97m");
-    expect(api).toContain("\u001B[97m");
-    expect(monorepo).toContain("\u001B[97m");
+    expect(web).toContain("\u001B[96m");
+    expect(api).toContain("\u001B[96m");
+    expect(monorepo).toContain("\u001B[96m");
     expect(web).not.toContain("\u001B[34m");
     expect(api).not.toContain("\u001B[32m");
     expect(monorepo).not.toContain("\u001B[38;5;208m");
+
+    expect(formatSelectOption(4, { name: "Recommended", value: "recommended", tone: "recommended" }, true)).toContain("\u001B[92m");
+    expect(formatSelectOption(5, { name: "Custom", value: "custom", tone: "custom" }, true)).toContain("\u001B[93m");
+  });
+});
+
+describe("formatCreateSuccess", () => {
+  it("confirms dependency installation and shows Monorepo next steps", () => {
+    const message = formatCreateSuccess({ targetDirectory: "D:/work/platform", projectType: "monorepo" }, false);
+
+    expect(message).toContain("Project created and dependencies installed.");
+    expect(message).toContain('cd "D:/work/platform"');
+    expect(message).toContain("pnpm dev");
+  });
+
+  it("uses success color when terminal color is enabled", () => {
+    expect(formatCreateSuccess({ targetDirectory: "D:/work/demo", projectType: "web" }, true)).toContain("\u001B[92m");
   });
 });

@@ -12,6 +12,7 @@ import type { ExtensionManifest } from "../core/registry/manifest.js";
 import { parseArguments } from "./arguments.js";
 import {
   conciseProjectTypeName,
+  formatCreateSuccess,
   formatPresetPreview,
   formatPrompt,
   formatSelectOption,
@@ -164,81 +165,73 @@ export const runCli = async (argv: readonly string[], io: CliIo): Promise<number
     }
 
     const target = typeof targetDirectory === "string" ? targetDirectory : path.resolve(process.cwd(), name);
-    const skipConfirmation = command.options.get("--yes") === true;
+    const selectedPreset = preset === undefined ? undefined : registry.get("preset", preset);
+    let plan = await planCreate({
+      name,
+      projectType,
+      targetDirectory: target,
+      registryRoot,
+      ...(preset === undefined ? {} : { preset }),
+      ...(authentication === undefined ? {} : { authentication }),
+      stack: {},
+      capabilities: [],
+      agentMode: "automatic"
+    });
 
-    while (true) {
-      const selectedPreset = preset === undefined ? undefined : registry.get("preset", preset);
-      const plan = await planCreate({
-        name,
-        projectType,
-        targetDirectory: target,
-        registryRoot,
-        ...(preset === undefined ? {} : { preset }),
-        ...(authentication === undefined ? {} : { authentication }),
-        stack: {},
-        capabilities: [],
-        agentMode: "automatic"
-      });
+    if (selectedPreset !== undefined) {
+      const resolvedAuthentication = plan.config.composition.authentication;
+      const authenticationManifest = resolvedAuthentication === undefined
+        ? undefined
+        : registry.get("capability", `auth-${resolvedAuthentication}`);
 
-      if (selectedPreset !== undefined) {
-        const resolvedAuthentication = plan.config.composition.authentication;
-        const authenticationManifest = resolvedAuthentication === undefined
-          ? undefined
-          : registry.get("capability", `auth-${resolvedAuthentication}`);
-
-        io.write(formatPresetPreview({
-          displayName: selectedPreset.displayName,
-          selection: { stack: resolveStackPreview(registry, selectedPreset) },
-          extraRows: authenticationManifest === undefined
-            ? []
-            : [{ label: "Authentication", value: authenticationManifest.displayName }]
-        }, color));
-      }
-
+      io.write(formatPresetPreview({
+        displayName: selectedPreset.displayName,
+        selection: { stack: resolveStackPreview(registry, selectedPreset) },
+        extraRows: authenticationManifest === undefined
+          ? []
+          : [{ label: "Authentication", value: authenticationManifest.displayName }]
+      }, color));
       io.write(plan.preview);
 
-      if (skipConfirmation) {
-        await applyCreatePlan(plan, io.generatorRunner);
-        io.write(`Created ${plan.targetDirectory}.`);
-        io.write(`Next: cd "${plan.targetDirectory}"`);
-        return 0;
+      if (interactive !== undefined) {
+        const installation = await interactive.select("Install stack", [
+          { name: "Install", value: "install", tone: "success" },
+          { name: "Choose Custom setup", value: "custom", tone: "custom" }
+        ]);
+
+        if (installation === "custom") {
+          preset = undefined;
+          if (authentication === undefined && authChoices.length > 0) {
+            authentication = await interactive.select("Authentication", authChoices) || undefined;
+          }
+          plan = await planCreate({
+            name,
+            projectType,
+            targetDirectory: target,
+            registryRoot,
+            ...(authentication === undefined ? {} : { authentication }),
+            stack: {},
+            capabilities: [],
+            agentMode: "automatic"
+          });
+          io.write(plan.preview);
+        } else if (installation !== "install") {
+          io.write("Choose Install or Choose Custom setup.");
+          return 2;
+        }
       }
-
-      if (interactive === undefined) {
-        io.write("Review the plan and re-run with --yes to create files.");
-        return 2;
-      }
-
-      const decision = await interactive.select("Continue", [
-        { name: "Yes", value: "yes", tone: "success" },
-        { name: "Customize", value: "customize", tone: "custom" }
-      ]);
-
-      if (decision === "yes") {
-        await applyCreatePlan(plan, io.generatorRunner);
-        io.write(`Created ${plan.targetDirectory}.`);
-        io.write(`Next: cd "${plan.targetDirectory}"`);
-        return 0;
-      }
-
-      if (decision !== "customize") {
-        io.write("Choose Yes or Customize.");
-        return 2;
-      }
-
-      if (authChoices.length > 0) {
-        authentication = await interactive.select("Authentication", authChoices) || authentication;
-        continue;
-      }
-
-      if (preset !== undefined) {
-        preset = undefined;
-        io.write("Using Custom stack configuration.");
-        continue;
-      }
-
-      io.write("No customizable selections are available for this setup.");
     }
+
+    if (selectedPreset === undefined) io.write(plan.preview);
+
+    if (interactive === undefined && command.options.get("--yes") !== true) {
+      io.write("Review the plan and re-run with --yes to create files.");
+      return 2;
+    }
+
+    await applyCreatePlan(plan, io.generatorRunner);
+    io.write(formatCreateSuccess({ targetDirectory: plan.targetDirectory, projectType: plan.config.project.type }, color));
+    return 0;
   }
 
   io.write(`Unknown command: ${command.value ?? ""}`.trim());

@@ -19,6 +19,11 @@ export interface SelectOption {
   readonly tone?: SelectTone;
 }
 
+export interface CreateSuccess {
+  readonly targetDirectory: string;
+  readonly projectType: string;
+}
+
 const paint = (value: string, code: string | number, enabled: boolean): string => enabled ? `\u001B[${code}m${value}\u001B[0m` : value;
 
 const titleCase = (value: string): string => value
@@ -66,9 +71,25 @@ export const formatSelectOption = (index: number, option: SelectOption, color: b
     return `${prefix} ${paint("★", 33, color)} ${paint(name, 92, color)}`;
   }
 
-  if (option.tone === "custom") return `${prefix} ${paint(option.name, 33, color)}`;
+  if (option.tone === "custom") return `${prefix} ${paint(option.name, 93, color)}`;
   if (option.tone === "success") return `${prefix} ${paint(option.name, 92, color)}`;
-  return `${prefix} ${paint(option.name, 97, color)}`;
+  return `${prefix} ${paint(option.name, 96, color)}`;
+};
+
+export const formatCreateSuccess = ({ targetDirectory, projectType }: CreateSuccess, color: boolean): string => {
+  const dependenciesInstalled = projectType === "monorepo";
+  const heading = dependenciesInstalled
+    ? "SUCCESS  Project created and dependencies installed."
+    : "SUCCESS  Project created successfully.";
+  const nextSteps = dependenciesInstalled
+    ? [`cd "${targetDirectory}"`, "pnpm dev"]
+    : [`cd "${targetDirectory}"`];
+
+  return [
+    paint(heading, 92, color),
+    paint("Next steps", "1;96", color),
+    ...nextSteps.map((step) => `  ${paint(step, 97, color)}`)
+  ].join("\n");
 };
 
 export const formatPreviewRow = (row: PreviewRow, color: boolean): string =>

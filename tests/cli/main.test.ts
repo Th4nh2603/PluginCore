@@ -98,7 +98,7 @@ describe("runCli", () => {
           select: async (message: string) => {
             if (message === "Project type") return "empty";
             if (message === "Setup") return "custom";
-            if (message === "Continue") return "yes";
+            if (message === "Install stack") return "install";
             throw new Error(`Unexpected select prompt: ${message}`);
           },
           confirm: async () => { throw new Error("confirm must not be used by the create wizard"); }
@@ -124,7 +124,7 @@ describe("runCli", () => {
           select: async (message: string) => {
             if (message === "Project type") return "web";
             if (message === "Setup") return "recommended";
-            if (message === "Continue") return "yes";
+            if (message === "Install stack") return "install";
             throw new Error(`Unexpected select prompt: ${message}`);
           },
           confirm: async () => { throw new Error("confirm must not be used by the create wizard"); }
@@ -182,7 +182,7 @@ describe("runCli", () => {
           select: async (message: string) => {
             if (message === "Project type") return "monorepo";
             if (message === "Setup") return "recommended";
-            if (message === "Continue") return "yes";
+            if (message === "Install stack") return "install";
             throw new Error(`Unexpected select prompt: ${message}`);
           },
           confirm: async () => false
@@ -191,25 +191,24 @@ describe("runCli", () => {
       } as never);
       expect(exitCode).toBe(0);
       expect(output.join("\n")).toContain("Frontend: Vite + React");
-      expect(output.join("\n")).toContain(`Next: cd "${targetDirectory}"`);
-      expect(output.join("\n")).not.toContain("Then run: pnpm dev");
+      expect(output.join("\n")).toContain("Project created and dependencies installed.");
+      expect(output.join("\n")).toContain(`cd "${targetDirectory}"`);
+      expect(output.join("\n")).toContain("pnpm dev");
     } finally {
       await rm(root, { recursive: true, force: true });
     }
   });
 
-  it("uses the authentication selected while customizing a recommended Monorepo", async () => {
+  it("uses the authentication selected during Custom Monorepo setup", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-auth-choice-"));
     const targetDirectory = path.join(root, "platform");
-    let continueSelections = 0;
     try {
       const exitCode = await runCli(["create", "platform", "--type", "monorepo", "--target", targetDirectory], {
         write: () => undefined,
         prompt: {
           input: async () => "unused",
           select: async (message: string) => {
-            if (message === "Setup") return "recommended";
-            if (message === "Continue") return ++continueSelections === 1 ? "customize" : "yes";
+            if (message === "Setup") return "custom";
             if (message === "Authentication") return "clerk";
             throw new Error(`Unexpected select prompt: ${message}`);
           },
@@ -220,7 +219,7 @@ describe("runCli", () => {
       expect(exitCode).toBe(0);
       const config = await readConfig(targetDirectory);
       expect(config.composition.authentication).toBe("clerk");
-      expect(config.composition.preset).toBe("recommended-monorepo@1.0.0");
+      expect(config.composition.preset).toBeUndefined();
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -284,7 +283,7 @@ describe("runCli", () => {
     }
   });
 
-  it("asks Continue after choosing Custom", async () => {
+  it("creates immediately after choosing Custom", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-custom-confirm-"));
     const targetDirectory = path.join(root, "web-demo");
     const selectMessages: string[] = [];
@@ -297,7 +296,6 @@ describe("runCli", () => {
             selectMessages.push(message);
             if (message === "Project type") return "web";
             if (message === "Setup") return "custom";
-            if (message === "Continue") return "yes";
             throw new Error(`Unexpected select prompt: ${message}`);
           },
           confirm: async () => { throw new Error("confirm must not be used by the create wizard"); }
@@ -305,42 +303,8 @@ describe("runCli", () => {
         generatorRunner: { run: async () => undefined }
       } as never);
       expect(exitCode).toBe(0);
-      expect(selectMessages).toEqual(["Project type", "Setup", "Continue"]);
+      expect(selectMessages).toEqual(["Project type", "Setup"]);
       expect(existsSync(path.join(targetDirectory, "repo.config.yaml"))).toBe(true);
-    } finally {
-      await rm(root, { recursive: true, force: true });
-    }
-  });
-
-  it("returns an error instead of repeating Continue after an invalid selection", async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-invalid-continue-"));
-    const registryRoot = path.join(root, "registry");
-    const targetDirectory = path.join(root, "demo");
-    const output: string[] = [];
-    let continueCalls = 0;
-    await writeEmptyRegistry(registryRoot);
-    try {
-      const exitCode = await runCli(["create", "demo", "--type", "empty", "--target", targetDirectory, "--registry", registryRoot], {
-        write: (line: string) => output.push(line),
-        prompt: {
-          input: async () => "unused",
-          select: async (message: string) => {
-            if (message === "Setup") return "custom";
-            if (message === "Continue") {
-              continueCalls += 1;
-              if (continueCalls > 1) throw new Error("Continue prompt repeated after an invalid selection");
-              return "";
-            }
-            throw new Error(`Unexpected select prompt: ${message}`);
-          },
-          confirm: async () => false
-        },
-        generatorRunner: { run: async () => undefined }
-      } as never);
-      expect(exitCode).toBe(2);
-      expect(continueCalls).toBe(1);
-      expect(output.join("\n")).toContain("Choose Yes or Customize.");
-      expect(existsSync(targetDirectory)).toBe(false);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
