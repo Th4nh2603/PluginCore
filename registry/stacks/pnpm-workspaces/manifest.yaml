@@ -3,3 +3,7 @@ id: pnpm-workspaces
 kind: stack-component
 version: 10.0.0
 displayName: pnpm Workspaces
+compatibility:
+  projectTypes: [monorepo]
+stack:
+  slot: workspace
