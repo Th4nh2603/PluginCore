@@ -1,0 +1,7 @@
+schemaVersion: 1
+id: auth-clerk
+kind: capability
+version: 1.0.0
+displayName: Clerk Authentication
+description: Managed authentication for the generated web and API workspaces.
+compatibility: { projectTypes: [monorepo] }
