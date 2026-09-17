@@ -1,10 +1,24 @@
-import { describe, expect, it } from "vitest";
 import { existsSync } from "node:fs";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
+import { describe, expect, it } from "vitest";
+import { parse } from "yaml";
+
 import { runCli } from "../../src/cli/main.js";
+
+const readConfig = async (targetDirectory: string): Promise<Record<string, any>> =>
+  parse(await readFile(path.join(targetDirectory, "repo.config.yaml"), "utf8")) as Record<string, any>;
+
+const writeEmptyRegistry = async (registryRoot: string): Promise<void> => {
+  await mkdir(path.join(registryRoot, "project-types", "empty"), { recursive: true });
+  await writeFile(
+    path.join(registryRoot, "project-types", "empty", "manifest.yaml"),
+    "schemaVersion: 1\nid: empty\nkind: project-type\nversion: 1.0.0\ndisplayName: Empty\n",
+    "utf8"
+  );
+};
 
 describe("runCli", () => {
   it("prints command help without reading the filesystem", async () => {
@@ -30,12 +44,13 @@ describe("runCli", () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-cli-"));
     const registryRoot = path.join(root, "registry");
     const targetDirectory = path.join(root, "demo");
-    await mkdir(path.join(registryRoot, "project-types", "empty"), { recursive: true });
-    await writeFile(path.join(registryRoot, "project-types", "empty", "manifest.yaml"), "schemaVersion: 1\nid: empty\nkind: project-type\nversion: 1.0.0\ndisplayName: Empty\n", "utf8");
+    await writeEmptyRegistry(registryRoot);
 
     try {
       const output: string[] = [];
-      const exitCode = await runCli(["create", "demo", "--type", "empty", "--target", targetDirectory, "--registry", registryRoot], { write: (line) => output.push(line) });
+      const exitCode = await runCli(["create", "demo", "--type", "empty", "--target", targetDirectory, "--registry", registryRoot], {
+        write: (line) => output.push(line)
+      });
 
       expect(exitCode).toBe(2);
       expect(existsSync(targetDirectory)).toBe(false);
@@ -49,11 +64,12 @@ describe("runCli", () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-cli-"));
     const registryRoot = path.join(root, "registry");
     const targetDirectory = path.join(root, "demo");
-    await mkdir(path.join(registryRoot, "project-types", "empty"), { recursive: true });
-    await writeFile(path.join(registryRoot, "project-types", "empty", "manifest.yaml"), "schemaVersion: 1\nid: empty\nkind: project-type\nversion: 1.0.0\ndisplayName: Empty\n", "utf8");
+    await writeEmptyRegistry(registryRoot);
 
     try {
-      const exitCode = await runCli(["create", "demo", "--type", "empty", "--target", targetDirectory, "--registry", registryRoot, "--yes"], { write: () => undefined });
+      const exitCode = await runCli(["create", "demo", "--type", "empty", "--target", targetDirectory, "--registry", registryRoot, "--yes"], {
+        write: () => undefined
+      });
 
       expect(exitCode).toBe(0);
       expect(existsSync(path.join(targetDirectory, "repo.config.yaml"))).toBe(true);
@@ -67,7 +83,9 @@ describe("runCli", () => {
     const targetDirectory = path.join(root, "demo");
 
     try {
-      const exitCode = await runCli(["create", "demo", "--type", "empty", "--target", targetDirectory, "--yes"], { write: () => undefined });
+      const exitCode = await runCli(["create", "demo", "--type", "empty", "--target", targetDirectory, "--yes"], {
+        write: () => undefined
+      });
 
       expect(exitCode).toBe(0);
       expect(existsSync(path.join(targetDirectory, "repo.config.yaml"))).toBe(true);
@@ -80,16 +98,20 @@ describe("runCli", () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-cli-"));
     const registryRoot = path.join(root, "registry");
     const targetDirectory = path.join(root, "interactive-demo");
-    await mkdir(path.join(registryRoot, "project-types", "empty"), { recursive: true });
-    await writeFile(path.join(registryRoot, "project-types", "empty", "manifest.yaml"), "schemaVersion: 1\nid: empty\nkind: project-type\nversion: 1.0.0\ndisplayName: Empty\n", "utf8");
+    await writeEmptyRegistry(registryRoot);
 
     try {
       const exitCode = await runCli(["create", "--target", targetDirectory, "--registry", registryRoot], {
         write: () => undefined,
         prompt: {
           input: async () => "interactive-demo",
-          select: async () => "empty",
-          confirm: async () => true
+          select: async (message: string) => {
+            if (message === "Project type") return "empty";
+            if (message === "Setup") return "custom";
+            if (message === "Continue") return "yes";
+            throw new Error(`Unexpected select prompt: ${message}`);
+          },
+          confirm: async () => { throw new Error("confirm must not be used by the create wizard"); }
         },
         generatorRunner: { run: async () => undefined }
       } as never);
@@ -104,35 +126,41 @@ describe("runCli", () => {
   it("offers and applies a compatible recommended preset", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-recommended-"));
     const targetDirectory = path.join(root, "web-demo");
+    const output: string[] = [];
 
     try {
-      const output: string[] = [];
       const exitCode = await runCli(["create", "web-demo", "--target", targetDirectory], {
         write: (line: string) => output.push(line),
         prompt: {
           input: async () => "unused",
-          select: async (message: string) => message === "Project type" ? "web" : "recommended-web",
-          confirm: async () => true
+          select: async (message: string) => {
+            if (message === "Project type") return "web";
+            if (message === "Setup") return "recommended";
+            if (message === "Continue") return "yes";
+            throw new Error(`Unexpected select prompt: ${message}`);
+          },
+          confirm: async () => { throw new Error("confirm must not be used by the create wizard"); }
         },
         generatorRunner: { run: async () => undefined }
       } as never);
 
       expect(exitCode).toBe(0);
-      expect(output.join("\n")).toContain("Framework: vite@8");
-      expect(output.join("\n")).toContain("Testing: vitest@4");
-      expect((await import("yaml")).parse(await (await import("node:fs/promises")).readFile(path.join(targetDirectory, "repo.config.yaml"), "utf8")).composition.preset).toBe("recommended-web@1.0.0");
+      expect(output.join("\n")).toContain("Recommended Web");
+      expect(output.join("\n")).toContain("Framework: Vite");
+      expect(output.join("\n")).toContain("Testing: Vitest");
+      expect((await readConfig(targetDirectory)).composition.preset).toBe("recommended-web@1.0.0");
     } finally {
       await rm(root, { recursive: true, force: true });
     }
   });
 
-  it("describes the workspaces included in the Monorepo option", async () => {
+  it("uses concise project type names in the wizard", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-monorepo-"));
     const targetDirectory = path.join(root, "monorepo-demo");
     let monorepoOption = "";
 
     try {
-      await runCli(["create", "monorepo-demo", "--target", targetDirectory], {
+      const exitCode = await runCli(["create", "monorepo-demo", "--target", targetDirectory], {
         write: () => undefined,
         prompt: {
           input: async () => "unused",
@@ -141,22 +169,23 @@ describe("runCli", () => {
               monorepoOption = choices.find((choice) => choice.value === "monorepo")?.name ?? "";
               return "empty";
             }
-            return "";
+            if (message === "Setup") return "custom";
+            if (message === "Continue") return "yes";
+            throw new Error(`Unexpected select prompt: ${message}`);
           },
-          confirm: async () => true
+          confirm: async () => false
         },
         generatorRunner: { run: async () => undefined }
       } as never);
 
-      expect(monorepoOption).toContain("apps/web");
-      expect(monorepoOption).toContain("apps/api");
-      expect(monorepoOption).toContain("packages/shared");
+      expect(exitCode).toBe(0);
+      expect(monorepoOption).toBe("Monorepo");
     } finally {
       await rm(root, { recursive: true, force: true });
     }
   });
 
-  it("shows startup guidance after creating a Monorepo", async () => {
+  it("shows registry-driven preview and generic next-step guidance after Monorepo creation", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-monorepo-cli-"));
     const targetDirectory = path.join(root, "platform");
     const output: string[] = [];
@@ -166,24 +195,30 @@ describe("runCli", () => {
         write: (line: string) => output.push(line),
         prompt: {
           input: async () => "unused",
-          select: async (message: string) => message === "Project type" ? "monorepo" : "recommended-monorepo",
-          confirm: async () => true
+          select: async (message: string) => {
+            if (message === "Project type") return "monorepo";
+            if (message === "Setup") return "recommended";
+            if (message === "Continue") return "yes";
+            throw new Error(`Unexpected select prompt: ${message}`);
+          },
+          confirm: async () => false
         },
         generatorRunner: { run: async () => undefined }
       } as never);
 
       expect(exitCode).toBe(0);
-      expect(output.join("\n")).toContain("apps/web");
-      expect(output.join("\n")).toContain("apps/api");
-      expect(output.join("\n")).toContain("pnpm dev");
+      expect(output.join("\n")).toContain("Frontend: Vite + React");
+      expect(output.join("\n")).toContain(`Next: cd "${targetDirectory}"`);
+      expect(output.join("\n")).not.toContain("Then run: pnpm dev");
     } finally {
       await rm(root, { recursive: true, force: true });
     }
   });
 
-  it("uses the authentication selected during interactive Monorepo creation", async () => {
+  it("uses the authentication selected while customizing a recommended Monorepo", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-auth-choice-"));
     const targetDirectory = path.join(root, "platform");
+    let continueSelections = 0;
 
     try {
       const exitCode = await runCli(["create", "platform", "--type", "monorepo", "--target", targetDirectory], {
@@ -191,24 +226,26 @@ describe("runCli", () => {
         prompt: {
           input: async () => "unused",
           select: async (message: string) => {
-            if (message === "Stack configuration") return "recommended-monorepo";
+            if (message === "Setup") return "recommended";
+            if (message === "Continue") return ++continueSelections === 1 ? "customize" : "yes";
             if (message === "Authentication") return "clerk";
-            return "";
+            throw new Error(`Unexpected select prompt: ${message}`);
           },
-          confirm: async () => true
+          confirm: async () => false
         },
         generatorRunner: { run: async () => undefined }
       } as never);
 
       expect(exitCode).toBe(0);
-      const config = (await import("yaml")).parse(await (await import("node:fs/promises")).readFile(path.join(targetDirectory, "repo.config.yaml"), "utf8"));
+      const config = await readConfig(targetDirectory);
       expect(config.composition.authentication).toBe("clerk");
+      expect(config.composition.preset).toBe("recommended-monorepo@1.0.0");
     } finally {
       await rm(root, { recursive: true, force: true });
     }
   });
 
-  it("rejects an unsupported authentication provider", async () => {
+  it("rejects an unregistered authentication capability", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-invalid-auth-"));
     const targetDirectory = path.join(root, "platform");
     const output: string[] = [];
@@ -220,13 +257,13 @@ describe("runCli", () => {
       });
 
       expect(exitCode).toBe(2);
-      expect(output.join("\n")).toContain("Authentication must be either custom or clerk.");
+      expect(output.join("\n")).toContain('Authentication capability "auth-firebase" is not available for monorepo.');
     } finally {
       await rm(root, { recursive: true, force: true });
     }
   });
 
-  it("rejects authentication selection for a non-Monorepo project", async () => {
+  it("rejects an authentication capability incompatible with the project type", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-web-auth-"));
     const targetDirectory = path.join(root, "web-demo");
     const output: string[] = [];
@@ -239,53 +276,100 @@ describe("runCli", () => {
 
       expect(exitCode).toBe(2);
       expect(existsSync(targetDirectory)).toBe(false);
-      expect(output.join("\n")).toContain("Authentication selection is supported only for the monorepo project type.");
+      expect(output.join("\n")).toContain('Authentication capability "auth-clerk" is not available for web.');
     } finally {
       await rm(root, { recursive: true, force: true });
     }
   });
 
-  it("falls back to Custom when the recommended stack is declined", async () => {
+  it("uses Custom setup when selected", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-custom-"));
     const targetDirectory = path.join(root, "web-demo");
-    let confirmations = 0;
 
     try {
       const exitCode = await runCli(["create", "web-demo", "--target", targetDirectory], {
         write: () => undefined,
         prompt: {
           input: async () => "unused",
-          select: async (message: string) => message === "Project type" ? "web" : "recommended-web",
-          confirm: async () => ++confirmations > 1
+          select: async (message: string) => {
+            if (message === "Project type") return "web";
+            if (message === "Setup") return "custom";
+            if (message === "Continue") return "yes";
+            throw new Error(`Unexpected select prompt: ${message}`);
+          },
+          confirm: async () => false
         },
         generatorRunner: { run: async () => undefined }
       } as never);
 
       expect(exitCode).toBe(0);
-      const config = (await import("yaml")).parse(await (await import("node:fs/promises")).readFile(path.join(targetDirectory, "repo.config.yaml"), "utf8"));
-      expect(config.composition.preset).toBeUndefined();
+      expect((await readConfig(targetDirectory)).composition.preset).toBeUndefined();
     } finally {
       await rm(root, { recursive: true, force: true });
     }
   });
 
-  it("creates immediately after choosing Custom without a final confirmation", async () => {
-    const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-custom-immediate-"));
+  it("asks Continue after choosing Custom", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-custom-confirm-"));
     const targetDirectory = path.join(root, "web-demo");
+    const selectMessages: string[] = [];
 
     try {
       const exitCode = await runCli(["create", "web-demo", "--target", targetDirectory], {
         write: () => undefined,
         prompt: {
           input: async () => "unused",
-          select: async (message: string) => message === "Project type" ? "web" : "",
-          confirm: async () => { throw new Error("The final create confirmation must not be requested."); }
+          select: async (message: string) => {
+            selectMessages.push(message);
+            if (message === "Project type") return "web";
+            if (message === "Setup") return "custom";
+            if (message === "Continue") return "yes";
+            throw new Error(`Unexpected select prompt: ${message}`);
+          },
+          confirm: async () => { throw new Error("confirm must not be used by the create wizard"); }
         },
         generatorRunner: { run: async () => undefined }
       } as never);
 
       expect(exitCode).toBe(0);
+      expect(selectMessages).toEqual(["Project type", "Setup", "Continue"]);
       expect(existsSync(path.join(targetDirectory, "repo.config.yaml"))).toBe(true);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("returns an error instead of repeating Continue after an invalid selection", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-invalid-continue-"));
+    const registryRoot = path.join(root, "registry");
+    const targetDirectory = path.join(root, "demo");
+    const output: string[] = [];
+    let continueCalls = 0;
+    await writeEmptyRegistry(registryRoot);
+
+    try {
+      const exitCode = await runCli(["create", "demo", "--type", "empty", "--target", targetDirectory, "--registry", registryRoot], {
+        write: (line) => output.push(line),
+        prompt: {
+          input: async () => "unused",
+          select: async (message: string) => {
+            if (message === "Setup") return "custom";
+            if (message === "Continue") {
+              continueCalls += 1;
+              if (continueCalls > 1) throw new Error("Continue prompt repeated after an invalid selection");
+              return "";
+            }
+            throw new Error(`Unexpected select prompt: ${message}`);
+          },
+          confirm: async () => false
+        },
+        generatorRunner: { run: async () => undefined }
+      } as never);
+
+      expect(exitCode).toBe(2);
+      expect(continueCalls).toBe(1);
+      expect(output.join("\n")).toContain("Choose Yes or Customize.");
+      expect(existsSync(targetDirectory)).toBe(false);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
