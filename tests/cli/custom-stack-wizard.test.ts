@@ -82,6 +82,8 @@ describe("custom stack wizard", () => {
 
       const rendered = output.join("\n");
       expect(rendered).toContain("Custom Monorepo");
+      expect(rendered).toContain("Auto-selected Workspace: pnpm Workspaces");
+      expect(rendered).toContain("Auto-selected Language: TypeScript");
       expect(rendered).toContain("Workspace: pnpm Workspaces");
       expect(rendered).toContain("Frontend framework: Vite");
       expect(rendered).toContain("Frontend library: React");
@@ -143,6 +145,47 @@ describe("custom stack wizard", () => {
       expect(frontendAttempts).toBe(2);
       expect(exitCode).toBe(2);
       expect(existsSync(targetDirectory)).toBe(false);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("lets the user edit selections before installing", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-custom-edit-"));
+    const targetDirectory = path.join(root, "platform");
+    let pass = 0;
+
+    try {
+      const exitCode = await runCli(["create", "platform", "--type", "monorepo", "--target", targetDirectory], {
+        write: () => undefined,
+        prompt: {
+          input: async () => "unused",
+          select: async (message: string) => {
+            if (message === "Setup") return "custom";
+            if (message === "Frontend framework") return pass === 0 ? "none" : "vite";
+            if (message === "Frontend library") return pass === 0 ? "none" : "react";
+            if (message === "Backend framework") return "express";
+            if (message === "Testing") return "vitest";
+            if (message === "Authentication") return "none";
+            if (message === "Agents") return "automatic";
+            if (message === "Install this stack?") {
+              if (pass === 0) {
+                pass = 1;
+                return "edit";
+              }
+              return "install";
+            }
+            throw new Error(`Unexpected select prompt: ${message}`);
+          },
+          confirm: async () => false
+        },
+        generatorRunner: { run: async () => undefined }
+      } as never);
+
+      expect(exitCode).toBe(0);
+      const config = parse(await readFile(path.join(targetDirectory, "repo.config.yaml"), "utf8"));
+      expect(config.composition.stack["frontend-framework"]).toBe("vite@8.0.0");
+      expect(config.composition.stack["frontend-library"]).toBe("react@19.0.0");
     } finally {
       await rm(root, { recursive: true, force: true });
     }
