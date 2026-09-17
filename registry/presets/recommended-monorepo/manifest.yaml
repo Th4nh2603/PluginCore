@@ -10,7 +10,7 @@ selection:
     frontend-framework: vite@8
     frontend-library: react@19
     backend-framework: express@5
-    shared-language: typescript@5
+    language: typescript@5
     testing: vitest@4
   capabilities:
     - auth-custom
