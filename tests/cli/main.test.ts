@@ -321,7 +321,7 @@ describe("runCli", () => {
     await writeEmptyRegistry(registryRoot);
     try {
       const exitCode = await runCli(["create", "demo", "--type", "empty", "--target", targetDirectory, "--registry", registryRoot], {
-        write: (line) => output.push(line),
+        write: (line: string) => output.push(line),
         prompt: {
           input: async () => "unused",
           select: async (message: string) => {
