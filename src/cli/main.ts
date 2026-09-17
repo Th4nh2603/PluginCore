@@ -3,13 +3,22 @@ import path from "node:path";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 
-import { buildInfo } from "../application/info-service.js";
-import { runDoctor } from "../application/doctor-service.js";
 import { applyCreatePlan, planCreate } from "../application/create-service.js";
+import { runDoctor } from "../application/doctor-service.js";
 import type { GeneratorRunner } from "../application/generator-runner.js";
+import { buildInfo } from "../application/info-service.js";
+import { loadRegistry, type Registry } from "../core/registry/registry-loader.js";
+import type { ExtensionManifest } from "../core/registry/manifest.js";
 import { parseArguments } from "./arguments.js";
-import { formatPresetPreview, formatSelectOption, helpText, infoText } from "./presentation.js";
-import { loadRegistry } from "../core/registry/registry-loader.js";
+import {
+  conciseProjectTypeName,
+  formatPresetPreview,
+  formatPrompt,
+  formatSelectOption,
+  helpText,
+  infoText,
+  type SelectOption
+} from "./presentation.js";
 
 export interface CliIo {
   write(line: string): void;
@@ -20,7 +29,7 @@ export interface CliIo {
 
 export interface CliPrompt {
   input(message: string): Promise<string>;
-  select(message: string, choices: readonly { readonly name: string; readonly value: string }[]): Promise<string>;
+  select(message: string, choices: readonly SelectOption[]): Promise<string>;
   confirm(message: string): Promise<boolean>;
 }
 
@@ -33,15 +42,57 @@ const defaultRegistryRoot = (): string => {
 const terminalPrompt = (color: boolean): CliPrompt => {
   const terminal = createInterface({ input: process.stdin, output: process.stdout });
   return {
-    input: (message) => terminal.question(`${message}: `),
+    input: (message) => terminal.question(`${formatPrompt(message, color)}: `),
     select: async (message, choices) => {
-      process.stdout.write(`${message}\n${choices.map((choice, index) => formatSelectOption(index + 1, choice, color)).join("\n")}\n`);
-      const answer = await terminal.question("Choose a number: ");
+      process.stdout.write(`${formatPrompt(message, color)}\n${choices.map((choice, index) => formatSelectOption(index + 1, choice, color)).join("\n")}\n`);
+      const answer = await terminal.question(`${formatPrompt("Choose a number", color)}: `);
       return choices[Number(answer) - 1]?.value ?? "";
     },
-    confirm: async (message) => /^(y|yes)$/i.test(await terminal.question(`${message} [y/N]: `))
+    confirm: async (message) => /^(y|yes)$/i.test(await terminal.question(`${formatPrompt(message, color)} [y/N]: `))
   };
 };
+
+const isCompatible = (manifest: ExtensionManifest, projectType: string): boolean => {
+  const projectTypes = manifest.compatibility?.projectTypes;
+  return !Array.isArray(projectTypes) || projectTypes.includes(projectType);
+};
+
+const referenceId = (reference: string): string => {
+  const separator = reference.lastIndexOf("@");
+  return separator > 0 ? reference.slice(0, separator) : reference;
+};
+
+const resolveStackPreview = (registry: Registry, preset: ExtensionManifest): Readonly<Record<string, string>> => Object.fromEntries(
+  Object.entries(preset.selection?.stack ?? {}).map(([category, reference]) => [
+    category,
+    registry.get("stack-component", referenceId(reference))?.displayName ?? reference
+  ])
+);
+
+const authenticationCapabilities = (registry: Registry, projectType: string): readonly ExtensionManifest[] =>
+  registry.list("capability").filter((capability) => capability.id.startsWith("auth-") && isCompatible(capability, projectType));
+
+const authenticationProvider = (capabilityId: string): string => capabilityId.replace(/^auth-/u, "");
+
+const orderedAuthenticationChoices = (
+  capabilities: readonly ExtensionManifest[],
+  preferredCapabilityId: string | undefined
+): readonly SelectOption[] => {
+  const ordered = preferredCapabilityId === undefined
+    ? [...capabilities]
+    : [
+        ...capabilities.filter((capability) => capability.id === preferredCapabilityId),
+        ...capabilities.filter((capability) => capability.id !== preferredCapabilityId)
+      ];
+
+  return ordered.map((capability) => ({
+    name: capability.displayName,
+    value: authenticationProvider(capability.id)
+  }));
+};
+
+const preferredAuthenticationCapability = (preset: ExtensionManifest | undefined): string | undefined =>
+  preset?.selection?.capabilities?.find((capability) => capability.startsWith("auth-"));
 
 export const runCli = async (argv: readonly string[], io: CliIo): Promise<number> => {
   const command = parseArguments(argv);
@@ -68,68 +119,126 @@ export const runCli = async (argv: readonly string[], io: CliIo): Promise<number
     const name = command.name ?? (interactive === undefined ? undefined : await interactive.input("Repository name"));
     const registryRoot = command.options.get("--registry") ?? defaultRegistryRoot();
     const registry = typeof registryRoot === "string" ? await loadRegistry(registryRoot) : undefined;
-    const projectType = command.options.get("--type") ?? (interactive === undefined || registry === undefined ? undefined : await interactive.select("Project type", registry.list("project-type").map((item) => ({ name: item.displayName, value: item.id }))));
+    const projectType = command.options.get("--type") ?? (interactive === undefined || registry === undefined
+      ? undefined
+      : await interactive.select("Project type", registry.list("project-type").map((item) => ({
+          name: conciseProjectTypeName(item.displayName),
+          value: item.id
+        }))));
     const targetDirectory = command.options.get("--target");
-    if (name === undefined || typeof projectType !== "string" || (targetDirectory !== undefined && typeof targetDirectory !== "string") || typeof registryRoot !== "string") {
+
+    if (name === undefined || typeof projectType !== "string" || (targetDirectory !== undefined && typeof targetDirectory !== "string") || typeof registryRoot !== "string" || registry === undefined) {
       io.write("Create requires a repository name and project type.");
       return 2;
     }
+
     const configuredPreset = command.options.get("--preset");
     const configuredAuthentication = command.options.get("--auth");
-    if (configuredAuthentication !== undefined && configuredAuthentication !== "custom" && configuredAuthentication !== "clerk") {
-      io.write("Authentication must be either custom or clerk.");
+    const compatiblePresets = registry.list("preset").filter((preset) => isCompatible(preset, projectType));
+    const recommendedPreset = compatiblePresets[0];
+    const authCapabilities = authenticationCapabilities(registry, projectType);
+    const preferredAuthCapabilityId = preferredAuthenticationCapability(recommendedPreset);
+    const authChoices = orderedAuthenticationChoices(authCapabilities, preferredAuthCapabilityId);
+
+    let preset = typeof configuredPreset === "string" ? configuredPreset : undefined;
+    let authentication = typeof configuredAuthentication === "string" ? configuredAuthentication : undefined;
+
+    if (authentication !== undefined && !authCapabilities.some((capability) => authenticationProvider(capability.id) === authentication)) {
+      io.write(`Authentication capability "auth-${authentication}" is not available for ${projectType}.`);
       return 2;
     }
-    if (configuredAuthentication !== undefined && projectType !== "monorepo") {
-      io.write("Authentication selection is supported only for the monorepo project type.");
-      return 2;
+
+    if (configuredPreset === undefined && interactive !== undefined) {
+      const setupChoices: SelectOption[] = [
+        ...(recommendedPreset === undefined ? [] : [{ name: "★ Recommended", value: "recommended", tone: "recommended" as const }]),
+        { name: "Custom", value: "custom", tone: "custom" }
+      ];
+      const setup = await interactive.select("Setup", setupChoices);
+      preset = setup === "recommended" ? recommendedPreset?.id : undefined;
+
+      if (setup === "custom" && authentication === undefined && authChoices.length > 0) {
+        authentication = await interactive.select("Authentication", authChoices) || undefined;
+      }
+    } else if (interactive === undefined && preset === undefined && authentication === undefined && authChoices.length > 0) {
+      authentication = authChoices[0]?.value;
     }
-    const compatiblePresets = registry?.list("preset").filter((preset) => {
-      const projectTypes = preset.compatibility?.projectTypes;
-      return Array.isArray(projectTypes) && projectTypes.includes(projectType);
-    }) ?? [];
-    let preset = typeof configuredPreset === "string"
-      ? configuredPreset
-      : interactive === undefined || compatiblePresets.length === 0
-        ? undefined
-        : await interactive.select("Stack configuration", [
-            ...compatiblePresets.map((item) => ({ name: item.displayName, value: item.id })),
-            { name: "Custom", value: "" }
-          ]) || undefined;
-    const selectedPreset = preset === undefined ? undefined : registry?.get("preset", preset);
-    if (selectedPreset !== undefined) {
-      io.write(formatPresetPreview(selectedPreset, color));
-      if (configuredPreset === undefined && command.options.get("--yes") !== true && interactive !== undefined && !await interactive.confirm("Use this recommended stack?")) {
+
+    const target = typeof targetDirectory === "string" ? targetDirectory : path.resolve(process.cwd(), name);
+    const skipConfirmation = command.options.get("--yes") === true;
+
+    while (true) {
+      const selectedPreset = preset === undefined ? undefined : registry.get("preset", preset);
+      const plan = await planCreate({
+        name,
+        projectType,
+        targetDirectory: target,
+        registryRoot,
+        ...(preset === undefined ? {} : { preset }),
+        ...(authentication === undefined ? {} : { authentication }),
+        stack: {},
+        capabilities: [],
+        agentMode: "automatic"
+      });
+
+      if (selectedPreset !== undefined) {
+        const resolvedAuthentication = plan.config.composition.authentication;
+        const authenticationManifest = resolvedAuthentication === undefined
+          ? undefined
+          : registry.get("capability", `auth-${resolvedAuthentication}`);
+
+        io.write(formatPresetPreview({
+          displayName: selectedPreset.displayName,
+          selection: { stack: resolveStackPreview(registry, selectedPreset) },
+          extraRows: authenticationManifest === undefined
+            ? []
+            : [{ label: "Authentication", value: authenticationManifest.displayName }]
+        }, color));
+      }
+
+      io.write(plan.preview);
+
+      if (skipConfirmation) {
+        await applyCreatePlan(plan, io.generatorRunner);
+        io.write(`Created ${plan.targetDirectory}.`);
+        io.write(`Next: cd "${plan.targetDirectory}"`);
+        return 0;
+      }
+
+      if (interactive === undefined) {
+        io.write("Review the plan and re-run with --yes to create files.");
+        return 2;
+      }
+
+      const decision = await interactive.select("Continue", [
+        { name: "Yes", value: "yes", tone: "success" },
+        { name: "Customize", value: "customize", tone: "custom" }
+      ]);
+
+      if (decision === "yes") {
+        await applyCreatePlan(plan, io.generatorRunner);
+        io.write(`Created ${plan.targetDirectory}.`);
+        io.write(`Next: cd "${plan.targetDirectory}"`);
+        return 0;
+      }
+
+      if (decision !== "customize") {
+        io.write("Choose Yes or Customize.");
+        return 2;
+      }
+
+      if (authChoices.length > 0) {
+        authentication = await interactive.select("Authentication", authChoices) || authentication;
+        continue;
+      }
+
+      if (preset !== undefined) {
         preset = undefined;
         io.write("Using Custom stack configuration.");
+        continue;
       }
+
+      io.write("No customizable selections are available for this setup.");
     }
-    const authentication = projectType !== "monorepo"
-      ? undefined
-      : configuredAuthentication === "clerk"
-        ? "clerk" as const
-        : configuredAuthentication === "custom" || interactive === undefined
-          ? "custom" as const
-          : (await interactive.select("Authentication", [
-              { name: "Custom (JWT, Argon2id, Prisma)", value: "custom" },
-              { name: "Clerk (managed authentication)", value: "clerk" }
-            ])) === "clerk"
-              ? "clerk" as const
-              : "custom" as const;
-    const plan = await planCreate({ name, projectType, targetDirectory: typeof targetDirectory === "string" ? targetDirectory : path.resolve(process.cwd(), name), registryRoot, ...(preset === undefined ? {} : { preset }), ...(authentication === undefined ? {} : { authentication }), stack: {}, capabilities: [], agentMode: "automatic" });
-    io.write(plan.preview);
-    if (interactive === undefined && command.options.get("--yes") !== true) {
-      io.write("Review the plan and re-run with --yes to create files.");
-      return 2;
-    }
-    await applyCreatePlan(plan, io.generatorRunner);
-    io.write(`Created ${plan.targetDirectory}.`);
-    if (plan.config.project.type === "monorepo") {
-      io.write("Workspaces: apps/web (Vite + React), apps/api (Express), packages/shared (TypeScript).");
-      io.write(`Next: cd "${plan.targetDirectory}"`);
-      io.write("Then run: pnpm dev");
-    }
-    return 0;
   }
 
   io.write(`Unknown command: ${command.value ?? ""}`.trim());

@@ -4,27 +4,50 @@ import { formatPresetPreview, formatSelectOption } from "../../src/cli/presentat
 
 describe("formatPresetPreview", () => {
   const preset = {
-    displayName: "Recommended Web Stack",
-    selection: { stack: { framework: "vite@8", testing: "vitest@4" } }
+    displayName: "Recommended Monorepo Stack — pnpm workspace, Vite + React, Express, shared TypeScript",
+    selection: {
+      stack: {
+        workspace: "pnpm-workspaces@10",
+        "frontend-framework": "vite@8",
+        "frontend-library": "react@19",
+        "backend-framework": "express@5",
+        "shared-language": "typescript@5",
+        testing: "vitest@4"
+      }
+    }
   };
+
+  it("groups the recommended stack into human-friendly preview rows", () => {
+    const preview = formatPresetPreview(preset, false);
+
+    expect(preview).toContain("Recommended Monorepo");
+    expect(preview).toContain("Workspace: pnpm-workspaces@10");
+    expect(preview).toContain("Frontend: vite@8 + react@19");
+    expect(preview).toContain("Backend: express@5");
+    expect(preview).toContain("Language: typescript@5");
+    expect(preview).toContain("Testing: vitest@4");
+  });
 
   it("adds terminal color when enabled", () => {
     expect(formatPresetPreview(preset, true)).toContain("\u001B[");
   });
 
   it("keeps output plain when color is disabled", () => {
-    expect(formatPresetPreview(preset, false)).toContain("Framework: vite@8");
     expect(formatPresetPreview(preset, false)).not.toContain("\u001B[");
   });
 });
 
 describe("formatSelectOption", () => {
-  it("uses a distinct accent for each built-in project type", () => {
-    expect(formatSelectOption(1, { name: "Web Application", value: "web" }, true)).toContain("\u001B[34m");
-    expect(formatSelectOption(2, { name: "API", value: "api" }, true)).toContain("\u001B[32m");
-    expect(formatSelectOption(3, { name: "CLI", value: "cli" }, true)).toContain("\u001B[33m");
-    expect(formatSelectOption(4, { name: "Library", value: "library" }, true)).toContain("\u001B[35m");
-    expect(formatSelectOption(5, { name: "Monorepo", value: "monorepo" }, true)).toContain("\u001B[38;5;208m");
-    expect(formatSelectOption(6, { name: "Empty", value: "empty" }, true)).toContain("\u001B[90m");
+  it("uses semantic choice colors instead of project-specific accents", () => {
+    const web = formatSelectOption(1, { name: "Web", value: "web" }, true);
+    const api = formatSelectOption(2, { name: "API", value: "api" }, true);
+    const monorepo = formatSelectOption(3, { name: "Monorepo", value: "monorepo" }, true);
+
+    expect(web).toContain("\u001B[97m");
+    expect(api).toContain("\u001B[97m");
+    expect(monorepo).toContain("\u001B[97m");
+    expect(web).not.toContain("\u001B[34m");
+    expect(api).not.toContain("\u001B[32m");
+    expect(monorepo).not.toContain("\u001B[38;5;208m");
   });
 });
