@@ -3,3 +3,7 @@ id: vitest
 kind: stack-component
 version: 4.0.0
 displayName: Vitest
+compatibility:
+  projectTypes: [web, api, monorepo, cli]
+stack:
+  slot: testing

@@ -3,3 +3,7 @@ id: express
 kind: stack-component
 version: 5.0.0
 displayName: Express
+compatibility:
+  projectTypes: [api, monorepo]
+stack:
+  slot: backend-framework

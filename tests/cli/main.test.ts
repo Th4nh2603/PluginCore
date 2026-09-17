@@ -124,7 +124,7 @@ describe("runCli", () => {
           select: async (message: string) => {
             if (message === "Project type") return "web";
             if (message === "Setup") return "recommended";
-            if (message === "Install stack") return "install";
+            if (message === "Stack setup") return "install";
             throw new Error(`Unexpected select prompt: ${message}`);
           },
           confirm: async () => { throw new Error("confirm must not be used by the create wizard"); }
@@ -182,7 +182,7 @@ describe("runCli", () => {
           select: async (message: string) => {
             if (message === "Project type") return "monorepo";
             if (message === "Setup") return "recommended";
-            if (message === "Install stack") return "install";
+            if (message === "Stack setup") return "install";
             throw new Error(`Unexpected select prompt: ${message}`);
           },
           confirm: async () => false
@@ -209,7 +209,15 @@ describe("runCli", () => {
           input: async () => "unused",
           select: async (message: string) => {
             if (message === "Setup") return "custom";
+            if (message === "Workspace") return "pnpm-workspaces";
+            if (message === "Frontend framework") return "vite";
+            if (message === "Frontend library") return "react";
+            if (message === "Backend framework") return "express";
+            if (message === "Language") return "typescript";
+            if (message === "Testing") return "vitest";
             if (message === "Authentication") return "clerk";
+            if (message === "Agents") return "automatic";
+            if (message === "Install this stack?") return "install";
             throw new Error(`Unexpected select prompt: ${message}`);
           },
           confirm: async () => false

@@ -3,3 +3,7 @@ id: typescript
 kind: stack-component
 version: 5.0.0
 displayName: TypeScript
+compatibility:
+  projectTypes: [web, api, monorepo, cli]
+stack:
+  slot: language

@@ -18,4 +18,20 @@ describe("built-in stack components", () => {
       "vitest"
     ]));
   });
+
+  it("exposes slot metadata for the built-in monorepo stack", async () => {
+    const registry = await loadRegistry(path.join(process.cwd(), "registry"));
+    const slotById = Object.fromEntries(
+      registry.list("stack-component").map((entry) => [entry.id, entry.stack?.slot])
+    );
+
+    expect(slotById).toMatchObject({
+      "pnpm-workspaces": "workspace",
+      vite: "frontend-framework",
+      react: "frontend-library",
+      express: "backend-framework",
+      typescript: "language",
+      vitest: "testing"
+    });
+  });
 });

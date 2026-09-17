@@ -3,3 +3,9 @@ id: vite
 kind: stack-component
 version: 8.0.0
 displayName: Vite
+compatibility:
+  projectTypes: [web, monorepo]
+stack:
+  slot: frontend-framework
+  compatibleWith:
+    frontend-library: [react]

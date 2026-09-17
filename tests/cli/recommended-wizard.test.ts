@@ -33,22 +33,22 @@ describe("recommended create wizard", () => {
               return "recommended";
             }
 
-            if (message === "Install stack") {
-              expect(choices.map((choice) => choice.name)).toEqual(["Install", "Choose Custom setup"]);
+            if (message === "Stack setup") {
+              expect(choices.map((choice) => choice.name)).toEqual(["Install Recommended stack", "Customize stack"]);
               return "install";
             }
 
             throw new Error(`Unexpected select prompt: ${message}`);
           },
           confirm: async () => {
-            throw new Error("The recommended wizard must use the Continue selection instead of a yes/no confirmation.");
+            throw new Error("The recommended wizard must use selections instead of a yes/no confirmation.");
           }
         },
         generatorRunner: { run: async () => undefined }
       } as never);
 
       expect(exitCode).toBe(0);
-      expect(selectMessages).toEqual(["Project type", "Setup", "Install stack"]);
+      expect(selectMessages).toEqual(["Project type", "Setup", "Stack setup"]);
       expect(output.join("\n")).toContain("Recommended Monorepo");
       expect(output.join("\n")).toContain("Frontend: Vite + React");
       expect(output.join("\n")).toContain("Authentication: Custom Authentication");
@@ -74,14 +74,25 @@ describe("recommended create wizard", () => {
           select: async (message: string, choices: readonly { readonly name: string; readonly value: string }[]) => {
             if (message === "Project type") return "monorepo";
             if (message === "Setup") return "custom";
+            if (message === "Workspace" || message === "Language") {
+              throw new Error(`${message} must be auto-selected`);
+            }
+            if (message === "Frontend framework") return "vite";
+            if (message === "Frontend library") return "react";
+            if (message === "Backend framework") return "express";
+            if (message === "Testing") return "vitest";
 
             if (message === "Authentication") {
               expect(choices.map((choice) => choice.name)).toEqual([
                 "Custom Authentication",
-                "Clerk Authentication"
+                "Clerk Authentication",
+                "None"
               ]);
               return "clerk";
             }
+
+            if (message === "Agents") return "automatic";
+            if (message === "Install this stack?") return "install";
 
             throw new Error(`Unexpected select prompt: ${message}`);
           },
@@ -100,24 +111,38 @@ describe("recommended create wizard", () => {
     }
   });
 
-  it("does not install a recommended stack after an invalid approval selection", async () => {
+  it("re-prompts an invalid recommended stack decision instead of continuing", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-wizard-invalid-"));
     const targetDirectory = path.join(root, "platform");
-    const output: string[] = [];
+    let stackSetupAttempts = 0;
 
     try {
       const exitCode = await runCli(["create", "platform", "--type", "monorepo", "--target", targetDirectory], {
-        write: (line: string) => output.push(line),
+        write: () => undefined,
         prompt: {
           input: async () => "unused",
-          select: async (message: string) => message === "Setup" ? "recommended" : "",
+          select: async (message: string) => {
+            if (message === "Setup") return "recommended";
+            if (message === "Stack setup") {
+              stackSetupAttempts += 1;
+              return stackSetupAttempts === 1 ? "" : "custom";
+            }
+            if (message === "Frontend framework") return "none";
+            if (message === "Frontend library") return "none";
+            if (message === "Backend framework") return "none";
+            if (message === "Testing") return "none";
+            if (message === "Authentication") return "none";
+            if (message === "Agents") return "none";
+            if (message === "Install this stack?") return "cancel";
+            throw new Error(`Unexpected select prompt: ${message}`);
+          },
           confirm: async () => false
         },
-        generatorRunner: { run: async () => { throw new Error("Generator must not run without approval."); } }
+        generatorRunner: { run: async () => { throw new Error("Generator must not run after cancellation."); } }
       } as never);
 
+      expect(stackSetupAttempts).toBe(2);
       expect(exitCode).toBe(2);
-      expect(output.join("\n")).toContain("Choose Install or Choose Custom setup.");
       expect(existsSync(targetDirectory)).toBe(false);
     } finally {
       await rm(root, { recursive: true, force: true });
