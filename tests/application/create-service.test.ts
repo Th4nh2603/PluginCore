@@ -138,11 +138,11 @@ describe("planCreate", () => {
     expect(await readFile(path.join(targetDirectory, "apps", "api", "src", "auth", "password.ts"), "utf8")).toContain("argon2id as 2");
   });
 
-  it("rejects an unsupported authentication provider before creating a plan", async () => {
+  it("rejects an unregistered authentication capability before creating a plan", async () => {
     const root = await makeRoot();
 
-    await expect(planCreate({ name: "platform", projectType: "monorepo", targetDirectory: path.join(root, "platform"), registryRoot: path.join(process.cwd(), "registry"), preset: "recommended-monorepo", stack: {}, agentMode: "automatic", capabilities: [], authentication: "firebase" as never }))
-      .rejects.toThrow("Authentication must be either custom or clerk.");
+    await expect(planCreate({ name: "platform", projectType: "monorepo", targetDirectory: path.join(root, "platform"), registryRoot: path.join(process.cwd(), "registry"), preset: "recommended-monorepo", stack: {}, agentMode: "automatic", capabilities: [], authentication: "firebase" }))
+      .rejects.toThrow('Capability "auth-firebase" is not available.');
   });
 
   it("generates a Clerk authentication scaffold when selected", async () => {

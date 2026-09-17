@@ -1,0 +1,5 @@
+schemaVersion: 1
+id: pnpm-workspaces
+kind: stack-component
+version: 10.0.0
+displayName: pnpm Workspaces

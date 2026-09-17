@@ -1,0 +1,7 @@
+schemaVersion: 1
+id: auth-custom
+kind: capability
+version: 1.0.0
+displayName: Custom Authentication
+description: Local email/password authentication using the generated API stack.
+compatibility: { projectTypes: [monorepo] }

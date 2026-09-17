@@ -1,0 +1,5 @@
+schemaVersion: 1
+id: vite
+kind: stack-component
+version: 8.0.0
+displayName: Vite

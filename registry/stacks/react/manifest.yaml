@@ -1,0 +1,5 @@
+schemaVersion: 1
+id: react
+kind: stack-component
+version: 19.0.0
+displayName: React

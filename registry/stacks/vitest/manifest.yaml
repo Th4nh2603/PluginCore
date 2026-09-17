@@ -1,0 +1,5 @@
+schemaVersion: 1
+id: vitest
+kind: stack-component
+version: 4.0.0
+displayName: Vitest
