@@ -54,7 +54,7 @@ const terminalPrompt = (color: boolean): CliPrompt => {
 
 const isCompatible = (manifest: ExtensionManifest, projectType: string): boolean => {
   const projectTypes = manifest.compatibility?.projectTypes;
-  return projectTypes === undefined || projectTypes.includes(projectType);
+  return !Array.isArray(projectTypes) || projectTypes.includes(projectType);
 };
 
 const referenceId = (reference: string): string => {
