@@ -16,6 +16,8 @@ const capabilityReference = z.object({
   configRef: z.string().min(1).optional()
 });
 
+const providerId = z.string().regex(/^[a-z0-9][a-z0-9-]*$/i, "Invalid provider ID.");
+
 export const RepoConfigSchema = z
   .object({
     schemaVersion: z.literal(1),
@@ -31,7 +33,7 @@ export const RepoConfigSchema = z
     composition: z.object({
       preset: extensionReference.optional(),
       stack: z.record(z.string(), extensionReference),
-      authentication: z.enum(["custom", "clerk"]).optional(),
+      authentication: providerId.optional(),
       capabilities: z.array(capabilityReference).optional()
     }),
     agents: z.object({
