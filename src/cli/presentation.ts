@@ -11,6 +11,11 @@ export interface PreviewRow {
   readonly value: string;
 }
 
+export interface CompositionPreview {
+  readonly title: string;
+  readonly rows: readonly PreviewRow[];
+}
+
 export type SelectTone = "default" | "recommended" | "custom" | "success";
 
 export interface SelectOption {
@@ -95,21 +100,22 @@ export const formatCreateSuccess = ({ targetDirectory, projectType }: CreateSucc
 export const formatPreviewRow = (row: PreviewRow, color: boolean): string =>
   `  ${paint(row.label.padEnd(16), 90, color)} ${paint(row.value, 97, color)}`;
 
-export const formatPresetPreview = (preset: PresetPreview, color: boolean): string => {
-  const rows = [
+export const formatCompositionPreview = (preview: CompositionPreview, color: boolean): string => [
+  paint(preview.title, "1;36", color),
+  paint("────────────────────────────────────", 90, color),
+  ...preview.rows.map((row) => color
+    ? formatPreviewRow(row, true)
+    : `${row.label}: ${row.value}`),
+  paint("────────────────────────────────────", 90, color)
+].join("\n");
+
+export const formatPresetPreview = (preset: PresetPreview, color: boolean): string => formatCompositionPreview({
+  title: compactRecommendedTitle(preset.displayName),
+  rows: [
     ...stackRows(preset.selection?.stack ?? {}),
     ...(preset.extraRows ?? [])
-  ];
-
-  return [
-    paint(compactRecommendedTitle(preset.displayName), "1;36", color),
-    paint("────────────────────────────────────", 90, color),
-    ...rows.map((row) => color
-      ? formatPreviewRow(row, true)
-      : `${row.label}: ${row.value}`),
-    paint("────────────────────────────────────", 90, color)
-  ].join("\n");
-};
+  ]
+}, color);
 
 export const helpText = (): string => `Repository Standard Plugin
 
