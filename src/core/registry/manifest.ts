@@ -29,7 +29,7 @@ export const ExtensionManifestSchema = z
     selection: z
       .object({
         stack: z.record(z.string(), z.string()).default({}),
-        capabilities: z.array(extensionId).default([])
+        capabilities: z.array(extensionId).optional()
       })
       .optional(),
     dependencies: z.array(extensionId).optional(),
