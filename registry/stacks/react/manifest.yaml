@@ -3,3 +3,7 @@ id: react
 kind: stack-component
 version: 19.0.0
 displayName: React
+compatibility:
+  projectTypes: [web, monorepo]
+stack:
+  slot: frontend-library
