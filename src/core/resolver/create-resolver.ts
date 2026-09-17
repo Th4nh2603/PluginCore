@@ -74,7 +74,13 @@ export const resolveCreateComposition = (input: CreateResolutionInput): CreateRe
     managed: { stateFile: ".repo-standard/managed-state.yaml" }
   };
 
-  const config = RepoConfigSchema.parse(candidate);
+  let config: RepoConfig;
+  try {
+    config = RepoConfigSchema.parse(candidate);
+  } catch (error) {
+    throw new RepositoryStandardError("CONFIG_INVALID", "Invalid resolved repository configuration.", { cause: error });
+  }
+
   const selected: SelectedExtension[] = [
     { kind: projectType.kind, id: projectType.id, version: projectType.version }
   ];
