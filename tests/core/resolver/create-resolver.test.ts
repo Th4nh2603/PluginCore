@@ -27,6 +27,15 @@ const preset = (
   selection: { stack: { ...stack } }
 });
 
+const capability = (id: string, projectTypes: readonly string[]): ExtensionManifest => ({
+  schemaVersion: 1,
+  id,
+  kind: "capability",
+  version: "1.0.0",
+  displayName: id,
+  compatibility: { projectTypes: [...projectTypes] }
+});
+
 const input = (registry: Registry, overrides: Partial<Parameters<typeof resolveCreateComposition>[0]> = {}) => ({
   name: "demo",
   projectType: "web",
@@ -91,7 +100,10 @@ describe("resolveCreateComposition", () => {
   });
 
   it("keeps the current automatic monorepo agent selection", () => {
-    const registry = new Registry([projectType("monorepo")]);
+    const registry = new Registry([
+      projectType("monorepo"),
+      capability("auth-custom", ["monorepo"])
+    ]);
 
     const resolution = resolveCreateComposition(
       input(registry, { projectType: "monorepo", authentication: "custom" })
