@@ -5,9 +5,7 @@ import path from "node:path";
 import type { RepoConfig } from "../core/config/repo-config.js";
 import { RepositoryStandardError } from "../core/errors.js";
 import { loadRegistry } from "../core/registry/registry-loader.js";
-import { createManagedState, writeYamlAtomically } from "./project-state.js";
 import { defaultGeneratorRunner, type GeneratorRunner } from "./generator-runner.js";
-import { stringify } from "yaml";
 
 export type AuthenticationProvider = "custom" | "clerk";
 
@@ -198,30 +196,26 @@ export const planCreate = async (input: CreateInput): Promise<CreatePlan> => {
   };
 };
 
-export const applyCreatePlan = async (plan: CreatePlan, runner: GeneratorRunner = defaultGeneratorRunner): Promise<void> => {
-  if (existsSync(plan.targetDirectory)) {
-    throw new RepositoryStandardError("CONFIG_INVALID", `Target directory already exists: ${plan.targetDirectory}.`);
+export const generateCreateScaffold = async (targetDirectory: string, config: RepoConfig, runner: GeneratorRunner = defaultGeneratorRunner): Promise<void> => {
+  if (existsSync(targetDirectory)) {
+    throw new RepositoryStandardError("CONFIG_INVALID", `Target directory already exists: ${targetDirectory}.`);
   }
 
-  await mkdir(plan.targetDirectory, { recursive: false });
-  if (plan.config.project.type === "monorepo") {
+  await mkdir(targetDirectory, { recursive: false });
+  if (config.project.type === "monorepo") {
     const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
-    await runner.run(pnpm, ["create", "vite", "apps/web", "--template", "react-ts", "--no-interactive"], plan.targetDirectory);
-    await writeMonorepoScaffold(plan.targetDirectory, plan.config.project.name);
-    if (plan.config.composition.authentication === "clerk") {
-      await writeMonorepoClerkScaffold(plan.targetDirectory, plan.config.project.name);
+    await runner.run(pnpm, ["create", "vite", "apps/web", "--template", "react-ts", "--no-interactive"], targetDirectory);
+    await writeMonorepoScaffold(targetDirectory, config.project.name);
+    if (config.composition.authentication === "clerk") {
+      await writeMonorepoClerkScaffold(targetDirectory, config.project.name);
     } else {
-      await writeMonorepoWebAuthScaffold(plan.targetDirectory);
+      await writeMonorepoWebAuthScaffold(targetDirectory);
     }
-    await runner.run(pnpm, ["install"], plan.targetDirectory);
-    if (plan.config.composition.authentication !== "clerk") {
-      await runner.run(pnpm, ["--filter", "./apps/api", "exec", "prisma", "generate"], plan.targetDirectory);
+    await runner.run(pnpm, ["install"], targetDirectory);
+    if (config.composition.authentication !== "clerk") {
+      await runner.run(pnpm, ["--filter", "./apps/api", "exec", "prisma", "generate"], targetDirectory);
     }
-  } else if (plan.config.composition.stack.framework === "vite@8") {
-    await runner.run(process.platform === "win32" ? "pnpm.cmd" : "pnpm", ["create", "vite", ".", "--template", "react-ts", "--no-interactive"], plan.targetDirectory);
+  } else if (config.composition.stack.framework === "vite@8") {
+    await runner.run(process.platform === "win32" ? "pnpm.cmd" : "pnpm", ["create", "vite", ".", "--template", "react-ts", "--no-interactive"], targetDirectory);
   }
-  const configPath = path.join(plan.targetDirectory, "repo.config.yaml");
-  const configText = stringify(plan.config);
-  await writeYamlAtomically(configPath, plan.config);
-  await writeYamlAtomically(path.join(plan.targetDirectory, ".repo-standard", "managed-state.yaml"), createManagedState(configText));
 };

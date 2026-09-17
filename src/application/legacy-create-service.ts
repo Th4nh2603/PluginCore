@@ -1,1 +1,1 @@
-export { applyCreatePlan } from "../execution/legacy-create-generator.js";
+export { generateCreateScaffold } from "../execution/legacy-create-generator.js";

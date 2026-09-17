@@ -8,8 +8,13 @@ import {
   resolveCreateComposition,
   type CreateAuthenticationProvider
 } from "../core/resolver/create-resolver.js";
-
-export { applyCreatePlan } from "./legacy-create-service.js";
+import { planCreateExecution } from "../core/planning/create-planner.js";
+import type { ExecutionPlan } from "../core/planning/execution-plan.js";
+import { executePlan } from "../execution/executor.js";
+import { createManagedState, writeYamlAtomically } from "../execution/project-state.js";
+import { generateCreateScaffold } from "../execution/legacy-create-generator.js";
+import { stringify } from "yaml";
+import { defaultGeneratorRunner, type GeneratorRunner } from "./generator-runner.js";
 
 export type AuthenticationProvider = CreateAuthenticationProvider;
 
@@ -28,6 +33,7 @@ export interface CreateInput {
 export interface CreatePlan {
   readonly targetDirectory: string;
   readonly config: RepoConfig;
+  readonly executionPlan: ExecutionPlan;
   readonly operations: readonly ("write-config" | "write-managed-state")[];
   readonly preview: string;
 }
@@ -55,11 +61,31 @@ export const planCreate = async (input: CreateInput): Promise<CreatePlan> => {
     ...(input.preset === undefined ? {} : { preset: input.preset }),
     ...(input.authentication === undefined ? {} : { authentication: input.authentication })
   });
+  const executionPlan = planCreateExecution({ resolution, targetDirectory });
 
   return {
     targetDirectory,
     config: resolution.config,
+    executionPlan,
     operations: ["write-config", "write-managed-state"],
     preview: `Create ${input.name} (${input.projectType}) at ${targetDirectory}.`
   };
+};
+
+export const applyCreatePlan = async (plan: CreatePlan, runner: GeneratorRunner = defaultGeneratorRunner): Promise<void> => {
+  const configText = stringify(plan.config);
+
+  await executePlan(plan.executionPlan, {
+    generate: async (operation) => {
+      if (operation.extension.kind === "project-type") {
+        await generateCreateScaffold(operation.targetDirectory, plan.config, runner);
+      }
+    },
+    writeConfig: async (operation) => writeYamlAtomically(path.join(operation.targetDirectory, "repo.config.yaml"), operation.config),
+    verify: async () => undefined,
+    recordState: async (operation) => writeYamlAtomically(
+      path.join(operation.targetDirectory, ".repo-standard", "managed-state.yaml"),
+      createManagedState(configText)
+    )
+  });
 };

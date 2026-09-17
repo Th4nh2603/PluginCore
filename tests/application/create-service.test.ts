@@ -41,6 +41,13 @@ describe("planCreate", () => {
     const targetDirectory = path.join(root, "demo");
     const plan = await planCreate({ name: "demo", projectType: "empty", targetDirectory, registryRoot, stack: {}, agentMode: "automatic", capabilities: [] });
 
+    expect(plan.executionPlan.operations.map((operation) => operation.type)).toEqual([
+      "generate",
+      "write-config",
+      "verify",
+      "record-state"
+    ]);
+
     await applyCreatePlan(plan);
 
     expect(existsSync(path.join(targetDirectory, "repo.config.yaml"))).toBe(true);
