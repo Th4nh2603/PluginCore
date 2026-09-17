@@ -9,7 +9,7 @@ import { parse } from "yaml";
 import { runCli } from "../../src/cli/main.js";
 
 describe("custom stack wizard", () => {
-  it("walks Monorepo stack slots from Registry and previews the resolved stack before install", async () => {
+  it("auto-selects single choices and previews the resolved stack before installation", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-custom-stack-"));
     const targetDirectory = path.join(root, "platform");
     const output: string[] = [];
@@ -26,9 +26,8 @@ describe("custom stack wizard", () => {
 
             if (message === "Project type") return "monorepo";
             if (message === "Setup") return "custom";
-            if (message === "Workspace") {
-              expect(names).toEqual(["pnpm Workspaces"]);
-              return "pnpm-workspaces";
+            if (message === "Workspace" || message === "Language") {
+              throw new Error(`${message} must be auto-selected when only one choice is available`);
             }
             if (message === "Frontend framework") {
               expect(names).toEqual(["Vite", "None"]);
@@ -44,10 +43,6 @@ describe("custom stack wizard", () => {
               expect(names).not.toContain("NestJS");
               return "express";
             }
-            if (message === "Language") {
-              expect(names).toEqual(["TypeScript"]);
-              return "typescript";
-            }
             if (message === "Testing") {
               expect(names).toEqual(["Vitest", "None"]);
               return "vitest";
@@ -60,8 +55,8 @@ describe("custom stack wizard", () => {
               expect(names).toEqual(["Automatic", "None"]);
               return "none";
             }
-            if (message === "Install stack") {
-              expect(names).toEqual(["Install"]);
+            if (message === "Install this stack?") {
+              expect(names).toEqual(["Install", "Edit selections", "Cancel"]);
               return "install";
             }
 
@@ -76,15 +71,13 @@ describe("custom stack wizard", () => {
       expect(prompts).toEqual([
         "Project type",
         "Setup",
-        "Workspace",
         "Frontend framework",
         "Frontend library",
         "Backend framework",
-        "Language",
         "Testing",
         "Authentication",
         "Agents",
-        "Install stack"
+        "Install this stack?"
       ]);
 
       const rendered = output.join("\n");
@@ -113,6 +106,43 @@ describe("custom stack wizard", () => {
       expect(config.agents.mode).toBe("none");
       expect(config.agents.enabled).toEqual([]);
       expect(config.agents.adapters).toEqual([]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("re-prompts a choice when the prompt returns an invalid selection", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-custom-invalid-choice-"));
+    const targetDirectory = path.join(root, "platform");
+    let frontendAttempts = 0;
+
+    try {
+      const exitCode = await runCli(["create", "platform", "--type", "monorepo", "--target", targetDirectory], {
+        write: () => undefined,
+        prompt: {
+          input: async () => "unused",
+          select: async (message: string) => {
+            if (message === "Setup") return "custom";
+            if (message === "Frontend framework") {
+              frontendAttempts += 1;
+              return frontendAttempts === 1 ? "" : "vite";
+            }
+            if (message === "Frontend library") return "react";
+            if (message === "Backend framework") return "express";
+            if (message === "Testing") return "vitest";
+            if (message === "Authentication") return "none";
+            if (message === "Agents") return "automatic";
+            if (message === "Install this stack?") return "cancel";
+            throw new Error(`Unexpected select prompt: ${message}`);
+          },
+          confirm: async () => false
+        },
+        generatorRunner: { run: async () => { throw new Error("Generator must not run after cancellation."); } }
+      } as never);
+
+      expect(frontendAttempts).toBe(2);
+      expect(exitCode).toBe(2);
+      expect(existsSync(targetDirectory)).toBe(false);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
