@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { formatCreateSuccess, formatPresetPreview, formatSelectOption } from "../../src/cli/presentation.js";
+import {
+  formatCompositionPreview,
+  formatCreateSuccess,
+  formatPresetPreview,
+  formatSelectOption
+} from "../../src/cli/presentation.js";
 
 describe("formatPresetPreview", () => {
   const preset = {
@@ -34,6 +39,24 @@ describe("formatPresetPreview", () => {
 
   it("keeps output plain when color is disabled", () => {
     expect(formatPresetPreview(preset, false)).not.toContain("\u001B[");
+  });
+});
+
+describe("formatCompositionPreview", () => {
+  it("shows exact resolved rows including automatic dependency provenance", () => {
+    const preview = formatCompositionPreview({
+      title: "Custom Monorepo",
+      rows: [
+        { label: "Frontend framework", value: "Next.js" },
+        { label: "Frontend library", value: "React (auto: required by Next.js)" },
+        { label: "Authentication", value: "None" }
+      ]
+    }, false);
+
+    expect(preview).toContain("Custom Monorepo");
+    expect(preview).toContain("Frontend framework: Next.js");
+    expect(preview).toContain("Frontend library: React (auto: required by Next.js)");
+    expect(preview).toContain("Authentication: None");
   });
 });
 
