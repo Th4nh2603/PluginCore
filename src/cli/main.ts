@@ -221,6 +221,11 @@ export const runCli = async (argv: readonly string[], io: CliIo): Promise<number
         return 0;
       }
 
+      if (decision !== "customize") {
+        io.write("Choose Yes or Customize.");
+        return 2;
+      }
+
       if (authChoices.length > 0) {
         authentication = await interactive.select("Authentication", authChoices) || authentication;
         continue;
