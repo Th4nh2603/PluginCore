@@ -74,14 +74,24 @@ describe("recommended create wizard", () => {
           select: async (message: string, choices: readonly { readonly name: string; readonly value: string }[]) => {
             if (message === "Project type") return "monorepo";
             if (message === "Setup") return "custom";
+            if (message === "Workspace") return "pnpm-workspaces";
+            if (message === "Frontend framework") return "vite";
+            if (message === "Frontend library") return "react";
+            if (message === "Backend framework") return "express";
+            if (message === "Language") return "typescript";
+            if (message === "Testing") return "vitest";
 
             if (message === "Authentication") {
               expect(choices.map((choice) => choice.name)).toEqual([
                 "Custom Authentication",
-                "Clerk Authentication"
+                "Clerk Authentication",
+                "None"
               ]);
               return "clerk";
             }
+
+            if (message === "Agents") return "automatic";
+            if (message === "Install stack") return "install";
 
             throw new Error(`Unexpected select prompt: ${message}`);
           },
