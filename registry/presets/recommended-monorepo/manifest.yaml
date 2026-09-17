@@ -12,3 +12,5 @@ selection:
     backend-framework: express@5
     shared-language: typescript@5
     testing: vitest@4
+  capabilities:
+    - auth-custom
