@@ -116,6 +116,45 @@ describe("stack resolver", () => {
     });
   });
 
+  it("resolves automatic dependencies before required slots are complete", () => {
+    const registry = new Registry([
+      ...baseEntries.filter((entry) => entry.id !== "vite"),
+      component("nextjs", "frontend-framework", { dependencies: ["react"] })
+    ]);
+
+    const resolution = resolveStack({
+      registry,
+      projectType: "monorepo",
+      selections: [{ slot: "frontend-framework", componentId: "nextjs" }],
+      requireComplete: false
+    });
+
+    expect(resolution.entries).toContainEqual({
+      slot: "frontend-library",
+      id: "react",
+      version: "1.0.0",
+      source: "auto",
+      reason: "required by nextjs"
+    });
+  });
+
+  it("rejects an automatic dependency when the user explicitly selected None for that slot", () => {
+    const registry = new Registry([
+      ...baseEntries.filter((entry) => entry.id !== "vite"),
+      component("nextjs", "frontend-framework", { dependencies: ["react"] })
+    ]);
+
+    expect(() => resolveStack({
+      registry,
+      projectType: "monorepo",
+      selections: [
+        { slot: "frontend-framework", componentId: "nextjs" },
+        { slot: "frontend-library", componentId: null }
+      ],
+      requireComplete: false
+    })).toThrow(/requires.*react.*frontend-library.*None/i);
+  });
+
   it("rejects an automatic dependency that conflicts with an explicit selection", () => {
     const registry = new Registry([
       ...baseEntries.filter((entry) => entry.id !== "vite"),
