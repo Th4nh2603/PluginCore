@@ -4,6 +4,7 @@ import type { Registry } from "../registry/registry-loader.js";
 import type { Diagnostic } from "../validation/validation.js";
 import { resolveCapabilities, type CapabilitySelection } from "./capability-resolver.js";
 import type { SelectedExtension, UnresolvedSelection } from "./contracts.js";
+import { resolveStack } from "./stack-resolver.js";
 
 export type CreateAuthenticationProvider = string;
 
@@ -30,6 +31,11 @@ const authenticationCapabilityPrefix = "auth-";
 
 const selectionId = (selection: string | CapabilitySelection): string =>
   typeof selection === "string" ? selection : selection.id;
+
+const referenceId = (reference: string): string => {
+  const separator = reference.lastIndexOf("@");
+  return separator > 0 ? reference.slice(0, separator) : reference;
+};
 
 export const resolveCreateComposition = (input: CreateResolutionInput): CreateResolutionPlan => {
   const projectType = input.registry.get("project-type", input.projectType);
@@ -72,13 +78,36 @@ export const resolveCreateComposition = (input: CreateResolutionInput): CreateRe
   );
   const authentication = authenticationCapability?.id.slice(authenticationCapabilityPrefix.length);
 
+  const mergedStack = { ...preset?.selection?.stack, ...input.stack };
+  const stackSlots = projectType.stack?.slots ?? [];
+  let resolvedStack: Readonly<Record<string, string>> = mergedStack;
+
+  if (stackSlots.length > 0 && Object.keys(mergedStack).length > 0) {
+    const slotIds = new Set(stackSlots.map((slot) => slot.id));
+    const unknownSlot = Object.keys(mergedStack).find((slot) => !slotIds.has(slot));
+    if (unknownSlot !== undefined) {
+      throw new RepositoryStandardError("CONFIG_INVALID", `Stack slot "${unknownSlot}" is not defined for ${input.projectType}.`);
+    }
+
+    resolvedStack = resolveStack({
+      registry: input.registry,
+      projectType: input.projectType,
+      selections: stackSlots.map((slot) => {
+        const reference = mergedStack[slot.id];
+        return reference === undefined
+          ? { slot: slot.id }
+          : { slot: slot.id, componentId: referenceId(reference) };
+      })
+    }).stack;
+  }
+
   const candidate = {
     schemaVersion: 1 as const,
     plugin: { id: "repo-standard" as const, version: "0.1.0" },
     project: { name: input.name, type: input.projectType, root: "." },
     composition: {
       ...(preset === undefined ? {} : { preset: `${preset.id}@${preset.version}` }),
-      stack: { ...preset?.selection?.stack, ...input.stack },
+      stack: resolvedStack,
       ...(authentication === undefined ? {} : { authentication }),
       capabilities: capabilityResolution.capabilities
     },
