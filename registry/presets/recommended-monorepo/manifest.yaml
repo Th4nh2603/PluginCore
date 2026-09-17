@@ -5,4 +5,10 @@ version: 1.0.0
 displayName: Recommended Monorepo Stack — pnpm workspace, Vite + React, Express, shared TypeScript
 compatibility: { projectTypes: [monorepo] }
 selection:
-  stack: { workspace: pnpm-workspaces@10, web: vite@8 + react@19, api: express@5, shared: typescript@5, testing: vitest@4 }
+  stack:
+    workspace: pnpm-workspaces@10
+    frontend-framework: vite@8
+    frontend-library: react@19
+    backend-framework: express@5
+    shared-language: typescript@5
+    testing: vitest@4
