@@ -22,6 +22,7 @@ import {
   formatCreateSuccess,
   formatPresetPreview,
   formatPrompt,
+  formatSelectInstruction,
   formatSelectOption,
   helpText,
   infoText,
@@ -61,12 +62,34 @@ const terminalPrompt = (color: boolean): CliPrompt => {
   return {
     input: (message) => terminal.question(`${formatPrompt(message, color)}: `),
     select: async (message, choices) => {
+      if (choices.length === 0) return "";
+
       process.stdout.write(`${formatPrompt(message, color)}\n${choices.map((choice, index) => formatSelectOption(index + 1, choice, color)).join("\n")}\n`);
-      const answer = await terminal.question(`${formatPrompt("Choose a number", color)}: `);
-      return choices[Number(answer) - 1]?.value ?? "";
+      while (true) {
+        const answer = await terminal.question(`${formatPrompt(formatSelectInstruction(choices.length, color), color)}: `);
+        const selectedIndex = Number(answer);
+        if (Number.isInteger(selectedIndex) && selectedIndex >= 1 && selectedIndex <= choices.length) {
+          return choices[selectedIndex - 1]?.value ?? "";
+        }
+        process.stdout.write(`Please choose a number from 1 to ${choices.length}.\n`);
+      }
     },
     confirm: async (message) => /^(y|yes)$/i.test(await terminal.question(`${formatPrompt(message, color)} [y/N]: `))
   };
+};
+
+const selectChoice = async (
+  prompt: CliPrompt,
+  message: string,
+  choices: readonly SelectOption[]
+): Promise<string> => {
+  if (choices.length === 0) return "";
+  if (choices.length === 1) return choices[0]?.value ?? "";
+
+  while (true) {
+    const selected = await prompt.select(message, choices);
+    if (choices.some((choice) => choice.value === selected)) return selected;
+  }
 };
 
 const isCompatible = (manifest: ExtensionManifest, projectType: string): boolean => {
@@ -115,6 +138,7 @@ const collectCustomSetup = async (input: {
   readonly registry: Registry;
   readonly projectType: string;
   readonly prompt: CliPrompt;
+  readonly write: (line: string) => void;
   readonly authChoices: readonly SelectOption[];
   readonly configuredAuthentication?: string;
 }): Promise<CustomSetup> => {
@@ -129,7 +153,13 @@ const collectCustomSetup = async (input: {
       selections,
       requireComplete: false
     });
-    if (partial.entries.some((entry) => entry.slot === slot.id && entry.source === "auto")) continue;
+    const automatic = partial.entries.find((entry) => entry.slot === slot.id && entry.source === "auto");
+    if (automatic !== undefined) {
+      const component = input.registry.get("stack-component", automatic.id);
+      const reason = automatic.reason === undefined ? "" : ` (${automatic.reason})`;
+      input.write(`Auto-selected ${slot.label}: ${component?.displayName ?? automatic.id}${reason}`);
+      continue;
+    }
 
     const choices: SelectOption[] = listStackChoices({
       registry: input.registry,
@@ -140,7 +170,8 @@ const collectCustomSetup = async (input: {
 
     if (slot.allowNone === true) choices.push({ name: "None", value: "none" });
 
-    const selected = await input.prompt.select(slot.label, choices);
+    if (choices.length === 1) input.write(`Auto-selected ${slot.label}: ${choices[0]?.name ?? ""}`);
+    const selected = await selectChoice(input.prompt, slot.label, choices);
     if (selected === "none") {
       selections.push({ slot: slot.id, componentId: null });
     } else if (selected !== "") {
@@ -150,7 +181,7 @@ const collectCustomSetup = async (input: {
 
   let authentication = input.configuredAuthentication;
   if (authentication === undefined && input.authChoices.length > 0) {
-    const selectedAuthentication = await input.prompt.select("Authentication", [
+    const selectedAuthentication = await selectChoice(input.prompt, "Authentication", [
       ...input.authChoices,
       { name: "None", value: "none" }
     ]);
@@ -161,7 +192,7 @@ const collectCustomSetup = async (input: {
 
   const agentSelection = slots.length === 0
     ? "automatic"
-    : await input.prompt.select("Agents", [
+    : await selectChoice(input.prompt, "Agents", [
         { name: "Automatic", value: "automatic" },
         { name: "None", value: "none" }
       ]);
@@ -189,7 +220,6 @@ const customPreviewRows = (input: {
 }): readonly PreviewRow[] => {
   const project = input.registry.get("project-type", input.projectType);
   const slots = project?.stack?.slots ?? [];
-  const selectionBySlot = new Map(input.setup.selections.map((selection) => [selection.slot, selection]));
   const entryBySlot = new Map(input.setup.resolution.entries.map((entry) => [entry.slot, entry]));
 
   const rows: PreviewRow[] = slots.map((slot) => {
@@ -208,7 +238,6 @@ const customPreviewRows = (input: {
   rows.push({ label: "Authentication", value: authentication });
   rows.push({ label: "Agents", value: input.setup.agentMode === "none" ? "None" : "Automatic" });
 
-  void selectionBySlot;
   return rows;
 };
 
@@ -237,12 +266,15 @@ export const runCli = async (argv: readonly string[], io: CliIo): Promise<number
     const name = command.name ?? (interactive === undefined ? undefined : await interactive.input("Repository name"));
     const registryRoot = command.options.get("--registry") ?? defaultRegistryRoot();
     const registry = typeof registryRoot === "string" ? await loadRegistry(registryRoot) : undefined;
-    const projectType = command.options.get("--type") ?? (interactive === undefined || registry === undefined
-      ? undefined
-      : await interactive.select("Project type", registry.list("project-type").map((item) => ({
+    const projectTypeChoices = registry === undefined
+      ? []
+      : registry.list("project-type").map((item) => ({
           name: conciseProjectTypeName(item.displayName),
           value: item.id
-        }))));
+        }));
+    const projectType = command.options.get("--type") ?? (interactive === undefined || registry === undefined
+      ? undefined
+      : await selectChoice(interactive, "Project type", projectTypeChoices));
     const targetDirectory = command.options.get("--target");
 
     if (name === undefined || typeof projectType !== "string" || (targetDirectory !== undefined && typeof targetDirectory !== "string") || typeof registryRoot !== "string" || registry === undefined) {
@@ -252,6 +284,7 @@ export const runCli = async (argv: readonly string[], io: CliIo): Promise<number
 
     const configuredPreset = command.options.get("--preset");
     const configuredAuthentication = command.options.get("--auth");
+    const fixedAuthentication = typeof configuredAuthentication === "string" ? configuredAuthentication : undefined;
     const compatiblePresets = registry.list("preset").filter((preset) => isCompatible(preset, projectType));
     const recommendedPreset = compatiblePresets[0];
     const authCapabilities = authenticationCapabilities(registry, projectType);
@@ -259,7 +292,7 @@ export const runCli = async (argv: readonly string[], io: CliIo): Promise<number
     const authChoices = orderedAuthenticationChoices(authCapabilities, preferredAuthCapabilityId);
 
     let preset = typeof configuredPreset === "string" ? configuredPreset : undefined;
-    let authentication = typeof configuredAuthentication === "string" ? configuredAuthentication : undefined;
+    let authentication = fixedAuthentication;
     let stack: Readonly<Record<string, string>> = {};
     let agentMode: "automatic" | "none" = "automatic";
     let customSetup: CustomSetup | undefined;
@@ -269,29 +302,36 @@ export const runCli = async (argv: readonly string[], io: CliIo): Promise<number
       return 2;
     }
 
+    const collectCustom = async (): Promise<CustomSetup> => {
+      const project = registry.get("project-type", projectType);
+      io.write(`Custom ${conciseProjectTypeName(project?.displayName ?? projectType)}`);
+      return collectCustomSetup({
+        registry,
+        projectType,
+        prompt: interactive as CliPrompt,
+        write: io.write,
+        authChoices,
+        ...(fixedAuthentication === undefined ? {} : { configuredAuthentication: fixedAuthentication })
+      });
+    };
+
     if (configuredPreset === undefined && interactive !== undefined) {
       const setupChoices: SelectOption[] = [
         ...(recommendedPreset === undefined ? [] : [{ name: "★ Recommended", value: "recommended", tone: "recommended" as const }]),
         { name: "Custom", value: "custom", tone: "custom" }
       ];
-      const setup = await interactive.select("Setup", setupChoices);
+      const setup = await selectChoice(interactive, "Setup", setupChoices);
       preset = setup === "recommended" ? recommendedPreset?.id : undefined;
 
       if (setup === "custom") {
         const project = registry.get("project-type", projectType);
         if ((project?.stack?.slots?.length ?? 0) > 0) {
-          customSetup = await collectCustomSetup({
-            registry,
-            projectType,
-            prompt: interactive,
-            authChoices,
-            ...(authentication === undefined ? {} : { configuredAuthentication: authentication })
-          });
+          customSetup = await collectCustom();
           stack = customSetup.stack;
           authentication = customSetup.authentication;
           agentMode = customSetup.agentMode;
         } else if (authentication === undefined && authChoices.length > 0) {
-          const selectedAuthentication = await interactive.select("Authentication", [
+          const selectedAuthentication = await selectChoice(interactive, "Authentication", [
             ...authChoices,
             { name: "None", value: "none" }
           ]);
@@ -304,7 +344,7 @@ export const runCli = async (argv: readonly string[], io: CliIo): Promise<number
 
     const target = typeof targetDirectory === "string" ? targetDirectory : path.resolve(process.cwd(), name);
     let selectedPreset = preset === undefined ? undefined : registry.get("preset", preset);
-    let plan = await planCreate({
+    const createCurrentPlan = async () => planCreate({
       name,
       projectType,
       targetDirectory: target,
@@ -315,6 +355,7 @@ export const runCli = async (argv: readonly string[], io: CliIo): Promise<number
       capabilities: [],
       agentMode
     });
+    let plan = await createCurrentPlan();
 
     if (selectedPreset !== undefined) {
       const resolvedAuthentication = plan.config.composition.authentication;
@@ -332,9 +373,9 @@ export const runCli = async (argv: readonly string[], io: CliIo): Promise<number
       io.write(plan.preview);
 
       if (interactive !== undefined) {
-        const installation = await interactive.select("Install stack", [
-          { name: "Install", value: "install", tone: "success" },
-          { name: "Choose Custom setup", value: "custom", tone: "custom" }
+        const installation = await selectChoice(interactive, "Stack setup", [
+          { name: "Install Recommended stack", value: "install", tone: "success" },
+          { name: "Customize stack", value: "custom", tone: "custom" }
         ]);
 
         if (installation === "custom") {
@@ -342,51 +383,44 @@ export const runCli = async (argv: readonly string[], io: CliIo): Promise<number
           selectedPreset = undefined;
           const project = registry.get("project-type", projectType);
           if ((project?.stack?.slots?.length ?? 0) > 0) {
-            customSetup = await collectCustomSetup({
-              registry,
-              projectType,
-              prompt: interactive,
-              authChoices,
-              ...(authentication === undefined ? {} : { configuredAuthentication: authentication })
-            });
+            customSetup = await collectCustom();
             stack = customSetup.stack;
             authentication = customSetup.authentication;
             agentMode = customSetup.agentMode;
           }
 
-          plan = await planCreate({
-            name,
-            projectType,
-            targetDirectory: target,
-            registryRoot,
-            ...(authentication === undefined ? {} : { authentication }),
-            stack,
-            capabilities: [],
-            agentMode
-          });
-        } else if (installation !== "install") {
-          io.write("Choose Install or Choose Custom setup.");
-          return 2;
+          plan = await createCurrentPlan();
         }
       }
     }
 
     if (customSetup !== undefined) {
-      const project = registry.get("project-type", projectType);
-      io.write(formatCompositionPreview({
-        title: `Custom ${conciseProjectTypeName(project?.displayName ?? projectType)}`,
-        rows: customPreviewRows({ registry, projectType, setup: customSetup })
-      }, color));
-      io.write(plan.preview);
+      while (true) {
+        const project = registry.get("project-type", projectType);
+        io.write(formatCompositionPreview({
+          title: `Custom ${conciseProjectTypeName(project?.displayName ?? projectType)}`,
+          rows: customPreviewRows({ registry, projectType, setup: customSetup })
+        }, color));
+        io.write(plan.preview);
 
-      if (interactive !== undefined) {
-        const installation = await interactive.select("Install stack", [
-          { name: "Install", value: "install", tone: "success" }
+        if (interactive === undefined) break;
+
+        const installation = await selectChoice(interactive, "Install this stack?", [
+          { name: "Install", value: "install", tone: "success" },
+          { name: "Edit selections", value: "edit", tone: "custom" },
+          { name: "Cancel", value: "cancel" }
         ]);
-        if (installation !== "install") {
-          io.write("Choose Install.");
+        if (installation === "install") break;
+        if (installation === "cancel") {
+          io.write("Creation cancelled.");
           return 2;
         }
+
+        customSetup = await collectCustom();
+        stack = customSetup.stack;
+        authentication = customSetup.authentication;
+        agentMode = customSetup.agentMode;
+        plan = await createCurrentPlan();
       }
     } else if (selectedPreset === undefined) {
       io.write(plan.preview);
