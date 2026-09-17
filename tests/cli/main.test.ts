@@ -209,7 +209,15 @@ describe("runCli", () => {
           input: async () => "unused",
           select: async (message: string) => {
             if (message === "Setup") return "custom";
+            if (message === "Workspace") return "pnpm-workspaces";
+            if (message === "Frontend framework") return "vite";
+            if (message === "Frontend library") return "react";
+            if (message === "Backend framework") return "express";
+            if (message === "Language") return "typescript";
+            if (message === "Testing") return "vitest";
             if (message === "Authentication") return "clerk";
+            if (message === "Agents") return "automatic";
+            if (message === "Install stack") return "install";
             throw new Error(`Unexpected select prompt: ${message}`);
           },
           confirm: async () => false
