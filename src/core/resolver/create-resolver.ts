@@ -2,9 +2,10 @@ import { RepoConfigSchema, type RepoConfig } from "../config/repo-config.js";
 import { RepositoryStandardError } from "../errors.js";
 import type { Registry } from "../registry/registry-loader.js";
 import type { Diagnostic } from "../validation/validation.js";
+import { resolveCapabilities, type CapabilitySelection } from "./capability-resolver.js";
 import type { SelectedExtension, UnresolvedSelection } from "./contracts.js";
 
-export type CreateAuthenticationProvider = "custom" | "clerk";
+export type CreateAuthenticationProvider = string;
 
 export interface CreateResolutionInput {
   readonly name: string;
@@ -25,6 +26,10 @@ export interface CreateResolutionPlan {
 }
 
 const monorepoAgentIds = ["frontend@1.0.0", "backend@1.0.0", "shared@1.0.0", "reviewer@1.0.0"] as const;
+const authenticationCapabilityPrefix = "auth-";
+
+const selectionId = (selection: string | CapabilitySelection): string =>
+  typeof selection === "string" ? selection : selection.id;
 
 export const resolveCreateComposition = (input: CreateResolutionInput): CreateResolutionPlan => {
   const projectType = input.registry.get("project-type", input.projectType);
@@ -45,17 +50,28 @@ export const resolveCreateComposition = (input: CreateResolutionInput): CreateRe
     );
   }
 
-  if (input.authentication !== undefined && input.authentication !== "custom" && input.authentication !== "clerk") {
-    throw new RepositoryStandardError("CONFIG_INVALID", "Authentication must be either custom or clerk.");
-  }
-  if (input.authentication !== undefined && input.projectType !== "monorepo") {
-    throw new RepositoryStandardError(
-      "CONFIG_INVALID",
-      "Authentication selection is supported only for the monorepo project type."
-    );
-  }
+  const configuredCapabilities: (string | CapabilitySelection)[] = input.capabilities.length > 0
+    ? [...input.capabilities]
+    : [...(preset?.selection?.capabilities ?? [])];
 
-  const authentication = input.projectType === "monorepo" ? input.authentication ?? "custom" : undefined;
+  const requestedCapabilities = input.authentication === undefined
+    ? configuredCapabilities
+    : [
+        ...configuredCapabilities.filter((selection) => !selectionId(selection).startsWith(authenticationCapabilityPrefix)),
+        `${authenticationCapabilityPrefix}${input.authentication}`
+      ];
+
+  const capabilityResolution = resolveCapabilities({
+    registry: input.registry,
+    projectType: input.projectType,
+    requested: requestedCapabilities
+  });
+
+  const authenticationCapability = capabilityResolution.capabilities.find((capability) =>
+    capability.id.startsWith(authenticationCapabilityPrefix)
+  );
+  const authentication = authenticationCapability?.id.slice(authenticationCapabilityPrefix.length);
+
   const candidate = {
     schemaVersion: 1 as const,
     plugin: { id: "repo-standard" as const, version: "0.1.0" },
@@ -64,7 +80,7 @@ export const resolveCreateComposition = (input: CreateResolutionInput): CreateRe
       ...(preset === undefined ? {} : { preset: `${preset.id}@${preset.version}` }),
       stack: { ...preset?.selection?.stack, ...input.stack },
       ...(authentication === undefined ? {} : { authentication }),
-      capabilities: [...input.capabilities]
+      capabilities: capabilityResolution.capabilities
     },
     agents: input.projectType === "monorepo"
       ? { mode: input.agentMode, enabled: [...monorepoAgentIds], adapters: ["codex"] }
@@ -85,6 +101,7 @@ export const resolveCreateComposition = (input: CreateResolutionInput): CreateRe
     { kind: projectType.kind, id: projectType.id, version: projectType.version }
   ];
   if (preset !== undefined) selected.push({ kind: preset.kind, id: preset.id, version: preset.version });
+  selected.push(...capabilityResolution.selected);
 
   return { config, selected, unresolved: [], diagnostics: [] };
 };
