@@ -8,4 +8,4 @@ compatibility:
 stack:
   slot: frontend-framework
   compatibleWith:
-    frontend-library: [react]
+    frontend-library: [react, vue]

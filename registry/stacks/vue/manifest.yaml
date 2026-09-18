@@ -1,10 +1,10 @@
 schemaVersion: 1
-id: react
+id: vue
 kind: stack-component
-version: 19.0.0
-displayName: React
+version: 3.0.0
+displayName: Vue
 compatibility:
-  projectTypes: [web, monorepo]
+  projectTypes: [monorepo]
 stack:
   slot: frontend-library
 dependencies: [vite]

@@ -37,6 +37,18 @@ const referenceId = (reference: string): string => {
   return separator > 0 ? reference.slice(0, separator) : reference;
 };
 
+const supportsStack = (compatibility: unknown, stack: Readonly<Record<string, string>>): boolean => {
+  if (typeof compatibility !== "object" || compatibility === null) return true;
+  const stackCompatibility = (compatibility as { readonly stack?: unknown }).stack;
+  if (typeof stackCompatibility !== "object" || stackCompatibility === null) return true;
+
+  return Object.entries(stackCompatibility).every(([slot, allowed]) =>
+    !Array.isArray(allowed)
+    || stack[slot] === undefined
+    || allowed.includes(referenceId(stack[slot]))
+  );
+};
+
 export const resolveCreateComposition = (input: CreateResolutionInput): CreateResolutionPlan => {
   const projectType = input.registry.get("project-type", input.projectType);
   if (projectType === undefined) {
@@ -99,6 +111,17 @@ export const resolveCreateComposition = (input: CreateResolutionInput): CreateRe
           : { slot: slot.id, componentId: referenceId(reference) };
       })
     }).stack;
+  }
+
+  const incompatibleCapability = capabilityResolution.capabilities.find((capability) => {
+    const manifest = input.registry.get("capability", capability.id);
+    return manifest !== undefined && !supportsStack(manifest.compatibility, resolvedStack);
+  });
+  if (incompatibleCapability !== undefined) {
+    throw new RepositoryStandardError(
+      "CONFIG_INVALID",
+      `Capability "${incompatibleCapability.id}" is not compatible with the selected stack.`
+    );
   }
 
   const candidate = {

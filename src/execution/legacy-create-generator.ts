@@ -108,6 +108,25 @@ const writeMonorepoWebAuthScaffold = async (targetDirectory: string): Promise<vo
   }));
 };
 
+const writeMonorepoVueWebAuthScaffold = async (targetDirectory: string): Promise<void> => {
+  await Promise.all([
+    rm(path.join(targetDirectory, "apps", "web", "src", "auth"), { recursive: true, force: true }),
+    rm(path.join(targetDirectory, "apps", "web", "src", "App.tsx"), { force: true }),
+    rm(path.join(targetDirectory, "apps", "web", "src", "main.tsx"), { force: true })
+  ]);
+
+  const files: Readonly<Record<string, string>> = {
+    "agents/frontend.toml": "id = \"frontend\"\nrole = \"frontend\"\nowns = [\"apps/web\"]\ncommands = [\"pnpm --filter ./apps/web build\"]\nreview_only = false\ninstructions = \"Own Vue and Vite behavior. Keep changes scoped to the web app unless coordinating an interface change.\"\n",
+    "apps/web/src/App.vue": "<script setup lang=\"ts\">\nimport { onMounted, ref } from \"vue\";\n\ninterface User { id: string; email: string; }\nconst apiOrigin = import.meta.env.VITE_API_ORIGIN ?? \"http://localhost:3001\";\nconst user = ref<User | null>(null);\nconst email = ref(\"\");\nconst password = ref(\"\");\nconst error = ref(\"\");\nconst loading = ref(true);\nconst submitting = ref(false);\nconst request = async (path: string, init?: RequestInit) => { const response = await fetch(`${apiOrigin}${path}`, { credentials: \"include\", headers: { \"Content-Type\": \"application/json\", ...init?.headers }, ...init }); if (!response.ok) throw new Error((await response.json().catch(() => ({ error: \"Request failed\" }))).error); return response.status === 204 ? undefined : response.json(); };\nconst refreshUser = async () => { try { user.value = (await request(\"/auth/me\")).user; } catch { user.value = null; } finally { loading.value = false; } };\nconst login = async () => { error.value = \"\"; submitting.value = true; try { await request(\"/auth/login\", { method: \"POST\", body: JSON.stringify({ email: email.value, password: password.value }) }); await refreshUser(); } catch (reason) { error.value = reason instanceof Error ? reason.message : \"Unable to sign in\"; } finally { submitting.value = false; } };\nconst logout = async () => { await request(\"/auth/logout\", { method: \"POST\" }); user.value = null; };\nonMounted(refreshUser);\n</script>\n\n<template>\n  <main v-if=\"loading\" class=\"loading\">Checking secure access…</main>\n  <main v-else-if=\"user\" class=\"protected-app\"><p class=\"eyebrow\">Authenticated workspace</p><h1>Signed in as {{ user.email }}</h1><p>Your API session is managed with an HttpOnly cookie.</p><button type=\"button\" @click=\"logout\">Sign out</button></main>\n  <main v-else class=\"access-layout\"><aside class=\"status-rail\"><p class=\"eyebrow\">Platform access</p><h1>One workspace.<br>Clear control.</h1><dl><div><dt>API</dt><dd>localhost:3001</dd></div><div><dt>Credential</dt><dd>JWT · HttpOnly</dd></div></dl></aside><section class=\"login-panel\"><div class=\"login-copy\"><p class=\"eyebrow\">Secure sign in</p><h2>Welcome back</h2><p>Use your workspace account to continue.</p></div><form @submit.prevent=\"login\"><label>Email<input v-model=\"email\" type=\"email\" autocomplete=\"email\" required></label><label>Password<input v-model=\"password\" type=\"password\" autocomplete=\"current-password\" minlength=\"12\" required></label><p v-if=\"error\" class=\"form-error\" role=\"alert\">{{ error }}</p><button type=\"submit\" :disabled=\"submitting\">{{ submitting ? \"Signing in…\" : \"Continue\" }}</button></form></section></main>\n</template>\n",
+    "apps/web/src/main.ts": "import { createApp } from \"vue\";\n\nimport \"./index.css\";\nimport App from \"./App.vue\";\n\ncreateApp(App).mount(\"#app\");\n"
+  };
+  await Promise.all(Object.entries(files).map(async ([relativePath, content]) => {
+    const filePath = path.join(targetDirectory, relativePath);
+    await mkdir(path.dirname(filePath), { recursive: true });
+    await writeFile(filePath, content, "utf8");
+  }));
+};
+
 const writeMonorepoClerkScaffold = async (targetDirectory: string, name: string): Promise<void> => {
   const packageScope = `@${name}`;
   await Promise.all([
@@ -204,10 +223,13 @@ export const generateCreateScaffold = async (targetDirectory: string, config: Re
   await mkdir(targetDirectory, { recursive: false });
   if (config.project.type === "monorepo") {
     const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
-    await runner.run(pnpm, ["create", "vite", "apps/web", "--template", "react-ts", "--no-interactive"], targetDirectory);
+    const usesVue = config.composition.stack["frontend-library"]?.startsWith("vue@") === true;
+    await runner.run(pnpm, ["create", "vite", "apps/web", "--template", usesVue ? "vue-ts" : "react-ts", "--no-interactive"], targetDirectory);
     await writeMonorepoScaffold(targetDirectory, config.project.name);
     if (config.composition.authentication === "clerk") {
       await writeMonorepoClerkScaffold(targetDirectory, config.project.name);
+    } else if (usesVue) {
+      await writeMonorepoVueWebAuthScaffold(targetDirectory);
     } else {
       await writeMonorepoWebAuthScaffold(targetDirectory);
     }

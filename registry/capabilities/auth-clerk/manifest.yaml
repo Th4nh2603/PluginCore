@@ -4,4 +4,7 @@ kind: capability
 version: 1.0.0
 displayName: Clerk Authentication
 description: Managed authentication for the generated web and API workspaces.
-compatibility: { projectTypes: [monorepo] }
+compatibility:
+  projectTypes: [monorepo]
+  stack:
+    frontend-library: [react]

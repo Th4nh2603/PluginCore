@@ -50,8 +50,8 @@ const baseEntries: ExtensionManifest[] = [
   projectType,
   component("pnpm-workspaces", "workspace"),
   component("vite", "frontend-framework", { compatibleWith: { "frontend-library": ["react"] } }),
-  component("react", "frontend-library"),
-  component("vue", "frontend-library"),
+  component("react", "frontend-library", { dependencies: ["vite"] }),
+  component("vue", "frontend-library", { dependencies: ["vite"] }),
   component("express", "backend-framework"),
   component("typescript", "language"),
   component("vitest", "testing"),
@@ -70,6 +70,19 @@ describe("stack resolver", () => {
     });
 
     expect(choices.map((choice) => choice.id)).toEqual(["react"]);
+  });
+
+  it("hides frontend libraries when Vite was explicitly set to None", () => {
+    const registry = new Registry(baseEntries);
+
+    const choices = listStackChoices({
+      registry,
+      projectType: "monorepo",
+      slot: "frontend-library",
+      selected: [{ slot: "frontend-framework", componentId: null }]
+    });
+
+    expect(choices).toEqual([]);
   });
 
   it("allows optional slots to be omitted while requiring required slots", () => {

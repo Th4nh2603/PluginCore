@@ -40,6 +40,38 @@ const recommendedMonorepo: ExtensionManifest = {
   selection: { stack: {}, capabilities: ["auth-custom"] }
 };
 
+const stackProjectType: ExtensionManifest = {
+  schemaVersion: 1,
+  id: "stack-monorepo",
+  kind: "project-type",
+  version: "1.0.0",
+  displayName: "Stack Monorepo",
+  stack: { slots: [
+    { id: "frontend-framework", label: "Frontend framework", allowNone: true },
+    { id: "frontend-library", label: "Frontend library", allowNone: true }
+  ] }
+};
+
+const vite: ExtensionManifest = {
+  schemaVersion: 1,
+  id: "vite",
+  kind: "stack-component",
+  version: "8.0.0",
+  displayName: "Vite",
+  compatibility: { projectTypes: ["stack-monorepo"] },
+  stack: { slot: "frontend-framework", compatibleWith: { "frontend-library": ["vue"] } }
+};
+
+const vue: ExtensionManifest = {
+  schemaVersion: 1,
+  id: "vue",
+  kind: "stack-component",
+  version: "3.0.0",
+  displayName: "Vue",
+  compatibility: { projectTypes: ["stack-monorepo"] },
+  stack: { slot: "frontend-library" }
+};
+
 const baseInput = (registry: Registry) => ({
   name: "platform",
   projectType: "monorepo",
@@ -95,5 +127,23 @@ describe("create resolver capability-backed authentication", () => {
     expect(resolution.config.composition.capabilities).toEqual([
       { id: "auth-clerk", version: "1.0.0" }
     ]);
+  });
+
+  it("rejects a capability that the manifest marks incompatible with the selected stack", () => {
+    const stackRestrictedClerk: ExtensionManifest = {
+      ...authClerk,
+      compatibility: { projectTypes: ["stack-monorepo"], stack: { "frontend-library": ["react"] } }
+    };
+    const registry = new Registry([stackProjectType, vite, vue, stackRestrictedClerk]);
+
+    expect(() => resolveCreateComposition({
+      name: "platform",
+      projectType: "stack-monorepo",
+      stack: { "frontend-framework": "vite@8.0.0", "frontend-library": "vue@3.0.0" },
+      capabilities: [],
+      agentMode: "automatic",
+      authentication: "clerk",
+      registry
+    })).toThrow('Capability "auth-clerk" is not compatible with the selected stack.');
   });
 });

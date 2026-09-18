@@ -84,6 +84,42 @@ describe("planCreate", () => {
     expect(existsSync(path.join(targetDirectory, "repo.config.yaml"))).toBe(true);
   });
 
+  it("runs the Vite Vue TypeScript generator for a Custom Monorepo selection", async () => {
+    const root = await makeRoot();
+    const targetDirectory = path.join(root, "vue-platform");
+    const commands: string[][] = [];
+    const plan = await planCreate({
+      name: "vue-platform",
+      projectType: "monorepo",
+      targetDirectory,
+      registryRoot: path.join(process.cwd(), "registry"),
+      stack: {
+        workspace: "pnpm-workspaces@10.0.0",
+        "frontend-framework": "vite@8.0.0",
+        "frontend-library": "vue@3.0.0",
+        "backend-framework": "express@5.0.0",
+        language: "typescript@5.0.0",
+        testing: "vitest@4.0.0"
+      },
+      agentMode: "none",
+      capabilities: [],
+      authentication: "custom"
+    });
+
+    await applyCreatePlan(plan, { run: async (command, args, cwd) => { commands.push([command, ...args, cwd]); } });
+
+    const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+    expect(commands).toEqual([
+      [pnpm, "create", "vite", "apps/web", "--template", "vue-ts", "--no-interactive", targetDirectory],
+      [pnpm, "install", targetDirectory],
+      [pnpm, "--filter", "./apps/api", "exec", "prisma", "generate", targetDirectory]
+    ]);
+    expect(await readFile(path.join(targetDirectory, "apps", "web", "src", "App.vue"), "utf8")).toContain('from "vue"');
+    expect(existsSync(path.join(targetDirectory, "apps", "web", "src", "App.tsx"))).toBe(false);
+    expect(existsSync(path.join(targetDirectory, "apps", "web", "src", "main.tsx"))).toBe(false);
+    expect(plan.config.composition.authentication).toBe("custom");
+  });
+
   it("writes a Monorepo workspace with API and shared package sources", async () => {
     const root = await makeRoot();
     const targetDirectory = path.join(root, "platform");

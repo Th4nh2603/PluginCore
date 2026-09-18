@@ -13,6 +13,7 @@ describe("built-in stack components", () => {
       "pnpm-workspaces",
       "vite",
       "react",
+      "vue",
       "express",
       "typescript",
       "vitest"
@@ -29,6 +30,7 @@ describe("built-in stack components", () => {
       "pnpm-workspaces": "workspace",
       vite: "frontend-framework",
       react: "frontend-library",
+      vue: "frontend-library",
       express: "backend-framework",
       typescript: "language",
       vitest: "testing"

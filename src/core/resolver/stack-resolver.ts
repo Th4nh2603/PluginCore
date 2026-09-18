@@ -83,6 +83,17 @@ const selectedComponents = (registry: Registry, projectType: string, selected: r
     return [component];
   });
 
+const dependenciesAvailable = (registry: Registry, candidate: ExtensionManifest, selected: readonly StackSelection[]): boolean => {
+  const explicitNone = new Set(
+    selected.filter((selection) => selection.componentId === null).map((selection) => selection.slot)
+  );
+
+  return (candidate.dependencies ?? []).every((dependencyId) => {
+    const dependency = registry.get("stack-component", dependencyId);
+    return dependency?.stack?.slot === undefined || !explicitNone.has(dependency.stack.slot);
+  });
+};
+
 export const listStackChoices = (input: ListStackChoicesInput): readonly ExtensionManifest[] => {
   const slots = projectSlots(input.registry, input.projectType);
   if (!slots.some((slot) => slot.id === input.slot)) {
@@ -94,6 +105,7 @@ export const listStackChoices = (input: ListStackChoicesInput): readonly Extensi
   return input.registry.list("stack-component").filter((candidate) =>
     candidate.stack?.slot === input.slot
     && supportsProjectType(candidate, input.projectType)
+    && dependenciesAvailable(input.registry, candidate, input.selected)
     && selected.every((selection) => compatiblePair(selection, candidate))
   );
 };

@@ -35,7 +35,7 @@ describe("custom stack wizard", () => {
               return "vite";
             }
             if (message === "Frontend library") {
-              expect(names).toEqual(["React", "None"]);
+              expect(names).toEqual(["React", "Vue", "None"]);
               return "react";
             }
             if (message === "Backend framework") {
@@ -108,6 +108,43 @@ describe("custom stack wizard", () => {
       expect(config.agents.mode).toBe("none");
       expect(config.agents.enabled).toEqual([]);
       expect(config.agents.adapters).toEqual([]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("persists a Vite Vue selection from the Custom Monorepo wizard", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-custom-vue-"));
+    const targetDirectory = path.join(root, "platform");
+
+    try {
+      const exitCode = await runCli(["create", "platform", "--type", "monorepo", "--target", targetDirectory], {
+        write: () => undefined,
+        prompt: {
+          input: async () => "unused",
+          select: async (message: string, choices: readonly { readonly name: string; readonly value: string }[]) => {
+            if (message === "Setup") return "custom";
+            if (message === "Frontend framework") return "vite";
+            if (message === "Frontend library") return "vue";
+            if (message === "Backend framework") return "express";
+            if (message === "Testing") return "vitest";
+            if (message === "Authentication") {
+              expect(choices.map((choice) => choice.name)).toEqual(["Custom Authentication", "None"]);
+              return "none";
+            }
+            if (message === "Agents") return "none";
+            if (message === "Install this stack?") return "install";
+            throw new Error(`Unexpected select prompt: ${message}`);
+          },
+          confirm: async () => false
+        },
+        generatorRunner: { run: async () => undefined }
+      } as never);
+
+      expect(exitCode).toBe(0);
+      const config = parse(await readFile(path.join(targetDirectory, "repo.config.yaml"), "utf8"));
+      expect(config.composition.stack["frontend-framework"]).toBe("vite@8.0.0");
+      expect(config.composition.stack["frontend-library"]).toBe("vue@3.0.0");
     } finally {
       await rm(root, { recursive: true, force: true });
     }

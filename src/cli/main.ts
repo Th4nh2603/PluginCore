@@ -114,6 +114,17 @@ const authenticationCapabilities = (registry: Registry, projectType: string): re
 
 const authenticationProvider = (capabilityId: string): string => capabilityId.replace(/^auth-/u, "");
 
+const supportsStack = (manifest: ExtensionManifest, stack: Readonly<Record<string, string>>): boolean => {
+  const stackCompatibility = manifest.compatibility?.stack;
+  if (typeof stackCompatibility !== "object" || stackCompatibility === null) return true;
+
+  return Object.entries(stackCompatibility).every(([slot, allowed]) =>
+    !Array.isArray(allowed)
+    || stack[slot] === undefined
+    || allowed.includes(referenceId(stack[slot]))
+  );
+};
+
 const orderedAuthenticationChoices = (
   capabilities: readonly ExtensionManifest[],
   preferredCapabilityId: string | undefined
@@ -179,10 +190,20 @@ const collectCustomSetup = async (input: {
     }
   }
 
+  const resolution = resolveStack({
+    registry: input.registry,
+    projectType: input.projectType,
+    selections
+  });
+  const compatibleAuthenticationChoices = input.authChoices.filter((choice) => {
+    const capability = input.registry.get("capability", `auth-${choice.value}`);
+    return capability === undefined || supportsStack(capability, resolution.stack);
+  });
+
   let authentication = input.configuredAuthentication;
-  if (authentication === undefined && input.authChoices.length > 0) {
+  if (authentication === undefined && compatibleAuthenticationChoices.length > 0) {
     const selectedAuthentication = await selectChoice(input.prompt, "Authentication", [
-      ...input.authChoices,
+      ...compatibleAuthenticationChoices,
       { name: "None", value: "none" }
     ]);
     authentication = selectedAuthentication === "none" || selectedAuthentication === ""
@@ -197,12 +218,6 @@ const collectCustomSetup = async (input: {
         { name: "None", value: "none" }
       ]);
   const agentMode = agentSelection === "none" ? "none" : "automatic";
-
-  const resolution = resolveStack({
-    registry: input.registry,
-    projectType: input.projectType,
-    selections
-  });
 
   return {
     stack: resolution.stack,
