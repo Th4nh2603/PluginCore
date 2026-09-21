@@ -25,6 +25,7 @@ export const ExtensionManifestSchema = z
     version: semanticVersion,
     displayName: z.string().min(1),
     description: z.string().min(1).optional(),
+    category: z.enum(["frontend", "backend", "orm"]).optional(),
     compatibility: z.record(z.string(), z.unknown()).optional(),
     selection: z
       .object({

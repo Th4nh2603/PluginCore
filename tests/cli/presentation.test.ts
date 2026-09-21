@@ -43,15 +43,15 @@ describe("formatSelectOption", () => {
     const api = formatSelectOption(2, { name: "API", value: "api" }, true);
     const monorepo = formatSelectOption(3, { name: "Monorepo", value: "monorepo" }, true);
 
-    expect(web).toContain("\u001B[96m");
-    expect(api).toContain("\u001B[96m");
-    expect(monorepo).toContain("\u001B[96m");
+    expect(web).toContain("\u001B[95m");
+    expect(api).toContain("\u001B[95m");
+    expect(monorepo).toContain("\u001B[95m");
     expect(web).not.toContain("\u001B[34m");
     expect(api).not.toContain("\u001B[32m");
     expect(monorepo).not.toContain("\u001B[38;5;208m");
 
     expect(formatSelectOption(4, { name: "Recommended", value: "recommended", tone: "recommended" }, true)).toContain("\u001B[92m");
-    expect(formatSelectOption(5, { name: "Custom", value: "custom", tone: "custom" }, true)).toContain("\u001B[93m");
+    expect(formatSelectOption(5, { name: "Custom", value: "custom", tone: "custom" }, true)).toContain("\u001B[95m");
   });
 });
 

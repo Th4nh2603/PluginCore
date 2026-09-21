@@ -1,7 +1,7 @@
 schemaVersion: 1
-id: express
+id: fastify
 kind: stack-component
 version: 5.0.0
-displayName: Express
+displayName: Fastify
 category: backend
 compatibility: { projectTypes: [api, monorepo] }

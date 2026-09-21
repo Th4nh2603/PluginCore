@@ -74,6 +74,10 @@ describe("recommended create wizard", () => {
           select: async (message: string, choices: readonly { readonly name: string; readonly value: string }[]) => {
             if (message === "Project type") return "monorepo";
             if (message === "Setup") return "custom";
+            if (message === "Frontend") return "react";
+            if (message === "Backend") return "express";
+            if (message === "ORM") return "prisma";
+            if (message === "Install stack") return "install";
 
             if (message === "Authentication") {
               expect(choices.map((choice) => choice.name)).toEqual([

@@ -33,6 +33,7 @@ const titleCase = (value: string): string => value
   .join(" ");
 
 const previewCategory = (category: string): string => {
+  if (category === "orm") return "ORM";
   if (category === "workspace") return "Workspace";
   if (category.startsWith("frontend-")) return "Frontend";
   if (category.startsWith("backend-")) return "Backend";
@@ -63,6 +64,8 @@ export const conciseProjectTypeName = (displayName: string): string => (displayN
 
 export const formatPrompt = (message: string, color: boolean): string => `${paint("?", 36, color)} ${paint(message, 1, color)}`;
 
+export const formatWarning = (message: string, color: boolean): string => paint(message, 33, color);
+
 export const formatSelectOption = (index: number, option: SelectOption, color: boolean): string => {
   const prefix = paint(`${index}.`, 90, color);
 
@@ -71,9 +74,9 @@ export const formatSelectOption = (index: number, option: SelectOption, color: b
     return `${prefix} ${paint("★", 33, color)} ${paint(name, 92, color)}`;
   }
 
-  if (option.tone === "custom") return `${prefix} ${paint(option.name, 93, color)}`;
+  if (option.tone === "custom") return `${prefix} ${paint(option.name, 95, color)}`;
   if (option.tone === "success") return `${prefix} ${paint(option.name, 92, color)}`;
-  return `${prefix} ${paint(option.name, 96, color)}`;
+  return `${prefix} ${paint(option.name, 95, color)}`;
 };
 
 export const formatCreateSuccess = ({ targetDirectory, projectType }: CreateSuccess, color: boolean): string => {

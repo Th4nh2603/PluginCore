@@ -134,7 +134,8 @@ describe("runCli", () => {
       expect(exitCode).toBe(0);
       expect(output.join("\n")).toContain("Recommended Web");
       expect(output.join("\n")).toContain("Framework: Vite");
-      expect(output.join("\n")).toContain("Testing: Vitest");
+      expect(output.join("\n")).not.toContain("Testing: Vitest");
+      expect(output.join("\n")).not.toContain("tailwind");
       expect((await readConfig(targetDirectory)).composition.preset).toBe("recommended-web@1.0.0");
     } finally {
       await rm(root, { recursive: true, force: true });
@@ -210,6 +211,10 @@ describe("runCli", () => {
           select: async (message: string) => {
             if (message === "Setup") return "custom";
             if (message === "Authentication") return "clerk";
+            if (message === "Frontend") return "react";
+            if (message === "Backend") return "express";
+            if (message === "ORM") return "prisma";
+            if (message === "Install stack") return "install";
             throw new Error(`Unexpected select prompt: ${message}`);
           },
           confirm: async () => false
@@ -269,6 +274,8 @@ describe("runCli", () => {
           select: async (message: string) => {
             if (message === "Project type") return "web";
             if (message === "Setup") return "custom";
+            if (message === "Frontend") return "react";
+            if (message === "Install stack") return "install";
             if (message === "Continue") return "yes";
             throw new Error(`Unexpected select prompt: ${message}`);
           },
@@ -283,7 +290,7 @@ describe("runCli", () => {
     }
   });
 
-  it("creates immediately after choosing Custom", async () => {
+  it("creates after selecting and approving a Custom stack", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-custom-confirm-"));
     const targetDirectory = path.join(root, "web-demo");
     const selectMessages: string[] = [];
@@ -296,6 +303,8 @@ describe("runCli", () => {
             selectMessages.push(message);
             if (message === "Project type") return "web";
             if (message === "Setup") return "custom";
+            if (message === "Frontend") return "react";
+            if (message === "Install stack") return "install";
             throw new Error(`Unexpected select prompt: ${message}`);
           },
           confirm: async () => { throw new Error("confirm must not be used by the create wizard"); }
@@ -303,7 +312,7 @@ describe("runCli", () => {
         generatorRunner: { run: async () => undefined }
       } as never);
       expect(exitCode).toBe(0);
-      expect(selectMessages).toEqual(["Project type", "Setup"]);
+      expect(selectMessages).toEqual(["Project type", "Setup", "Frontend", "Install stack"]);
       expect(existsSync(path.join(targetDirectory, "repo.config.yaml"))).toBe(true);
     } finally {
       await rm(root, { recursive: true, force: true });

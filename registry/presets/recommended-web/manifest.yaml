@@ -5,4 +5,4 @@ version: 1.0.0
 displayName: Recommended Web Stack
 compatibility: { projectTypes: [web] }
 selection:
-  stack: { framework: vite@8, ui: react@19, language: typescript@5, packageManager: pnpm@10, styling: tailwind@4, testing: vitest@4 }
+  stack: { framework: vite@8, ui: react@19, language: typescript@5, packageManager: pnpm@10 }

@@ -1,7 +1,7 @@
 schemaVersion: 1
-id: express
+id: drizzle
 kind: stack-component
-version: 5.0.0
-displayName: Express
-category: backend
+version: 0.45.0
+displayName: Drizzle
+category: orm
 compatibility: { projectTypes: [api, monorepo] }

@@ -60,12 +60,12 @@ describe("planCreate", () => {
     await mkdir(path.join(registryRoot, "project-types", "web", "..", "..", "presets", "recommended-web"), { recursive: true });
     await mkdir(path.join(registryRoot, "project-types", "web"), { recursive: true });
     await writeFile(path.join(registryRoot, "project-types", "web", "manifest.yaml"), "schemaVersion: 1\nid: web\nkind: project-type\nversion: 1.0.0\ndisplayName: Web\n", "utf8");
-    await writeFile(path.join(registryRoot, "presets", "recommended-web", "manifest.yaml"), "schemaVersion: 1\nid: recommended-web\nkind: preset\nversion: 1.0.0\ndisplayName: Recommended Web\ncompatibility: { projectTypes: [web] }\nselection: { stack: { framework: nextjs@15, language: typescript@5, packageManager: pnpm@10 } }\n", "utf8");
+    await writeFile(path.join(registryRoot, "presets", "recommended-web", "manifest.yaml"), "schemaVersion: 1\nid: recommended-web\nkind: preset\nversion: 1.0.0\ndisplayName: Recommended Web\ncompatibility: { projectTypes: [web] }\nselection: { stack: { framework: vite@8, language: typescript@5, packageManager: pnpm@10 } }\n", "utf8");
 
     const plan = await planCreate({ name: "demo", projectType: "web", targetDirectory: path.join(root, "demo"), registryRoot, preset: "recommended-web", stack: {}, agentMode: "automatic", capabilities: [] });
 
     expect(plan.config.composition.preset).toBe("recommended-web@1.0.0");
-    expect(plan.config.composition.stack).toEqual({ framework: "nextjs@15", language: "typescript@5", packageManager: "pnpm@10" });
+    expect(plan.config.composition.stack).toEqual({ framework: "vite@8", language: "typescript@5", packageManager: "pnpm@10" });
   });
 
   it("runs the Vite React TypeScript generator before writing managed state", async () => {
@@ -169,7 +169,10 @@ describe("planCreate", () => {
     expect(webPackage.dependencies["@clerk/react"]).toBe("^6.16.1");
     const apiPackage = JSON.parse(await readFile(path.join(targetDirectory, "apps", "api", "package.json"), "utf8"));
     expect(apiPackage.dependencies["@clerk/express"]).toBe("^2.1.69");
-    expect(commands.map((command) => command.slice(1, -1))).not.toContainEqual(["--filter", "./apps/api", "exec", "prisma", "generate"]);
+    expect(apiPackage.dependencies["@prisma/client"]).toBe("^6.19.3");
+    expect(apiPackage.devDependencies.prisma).toBe("^6.19.3");
+    expect(existsSync(path.join(targetDirectory, "apps", "api", "prisma", "schema.prisma"))).toBe(true);
+    expect(commands.map((command) => command.slice(1, -1))).toContainEqual(["--filter", "./apps/api", "exec", "prisma", "generate"]);
     const clerkApp = await readFile(path.join(targetDirectory, "apps", "web", "src", "App.tsx"), "utf8");
     expect(clerkApp).toContain("useAuth");
     expect(clerkApp).toContain("getToken()");

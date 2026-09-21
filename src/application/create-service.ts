@@ -13,6 +13,7 @@ import type { ExecutionPlan } from "../core/planning/execution-plan.js";
 import { executePlan } from "../execution/executor.js";
 import { createManagedState, writeYamlAtomically } from "../execution/project-state.js";
 import { generateCreateScaffold } from "../execution/legacy-create-generator.js";
+import { selectGenerationStrategy } from "../execution/generation-contract.js";
 import { stringify } from "yaml";
 import { defaultGeneratorRunner, type GeneratorRunner } from "./generator-runner.js";
 
@@ -61,6 +62,7 @@ export const planCreate = async (input: CreateInput): Promise<CreatePlan> => {
     ...(input.preset === undefined ? {} : { preset: input.preset }),
     ...(input.authentication === undefined ? {} : { authentication: input.authentication })
   });
+  selectGenerationStrategy(resolution.config);
   const executionPlan = planCreateExecution({ resolution, targetDirectory });
 
   return {
@@ -73,6 +75,7 @@ export const planCreate = async (input: CreateInput): Promise<CreatePlan> => {
 };
 
 export const applyCreatePlan = async (plan: CreatePlan, runner: GeneratorRunner = defaultGeneratorRunner): Promise<void> => {
+  selectGenerationStrategy(plan.config);
   const configText = stringify(plan.config);
 
   await executePlan(plan.executionPlan, {

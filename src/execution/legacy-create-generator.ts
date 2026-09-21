@@ -6,6 +6,8 @@ import type { RepoConfig } from "../core/config/repo-config.js";
 import { RepositoryStandardError } from "../core/errors.js";
 import { loadRegistry } from "../core/registry/registry-loader.js";
 import { defaultGeneratorRunner, type GeneratorRunner } from "./generator-runner.js";
+import { generateCustomStack } from "./custom-stack-generator.js";
+import { selectGenerationStrategy } from "./generation-contract.js";
 
 export type AuthenticationProvider = "custom" | "clerk";
 
@@ -111,7 +113,6 @@ const writeMonorepoWebAuthScaffold = async (targetDirectory: string): Promise<vo
 const writeMonorepoClerkScaffold = async (targetDirectory: string, name: string): Promise<void> => {
   const packageScope = `@${name}`;
   await Promise.all([
-    rm(path.join(targetDirectory, "apps", "api", "prisma"), { recursive: true, force: true }),
     rm(path.join(targetDirectory, "apps", "api", "src", "auth"), { recursive: true, force: true }),
     rm(path.join(targetDirectory, "apps", "web", "src", "auth"), { recursive: true, force: true })
   ]);
@@ -120,8 +121,8 @@ const writeMonorepoClerkScaffold = async (targetDirectory: string, name: string)
     "apps/api/package.json": `${JSON.stringify({
       name: `${packageScope}/api`, private: true, type: "module",
       scripts: { dev: "tsx watch src/server.ts", build: "tsc -p tsconfig.json", start: "node dist/server.js", test: "vitest run" },
-      dependencies: { [`${packageScope}/shared`]: "workspace:*", "@clerk/express": "^2.1.69", cors: "^2.8.5", dotenv: "^17.4.2", express: "^5.1.0", helmet: "^8.3.0" },
-      devDependencies: { "@types/cors": "^2.8.19", "@types/express": "^5.0.1", "@types/node": "^22.18.12", tsx: "^4.20.5", typescript: "^5.9.3", vitest: "^4.1.11" }
+      dependencies: { [`${packageScope}/shared`]: "workspace:*", "@clerk/express": "^2.1.69", "@prisma/client": "^6.19.3", cors: "^2.8.5", dotenv: "^17.4.2", express: "^5.1.0", helmet: "^8.3.0" },
+      devDependencies: { "@types/cors": "^2.8.19", "@types/express": "^5.0.1", "@types/node": "^22.18.12", prisma: "^6.19.3", tsx: "^4.20.5", typescript: "^5.9.3", vitest: "^4.1.11" }
     }, null, 2)}\n`,
     "apps/api/.env.example": "CLERK_SECRET_KEY=sk_test_replace_with_your_clerk_secret_key\nCLERK_PUBLISHABLE_KEY=pk_test_replace_with_your_clerk_publishable_key\nWEB_ORIGIN=http://localhost:5173\nPORT=3001\n",
     "apps/api/.env": "CLERK_SECRET_KEY=\nCLERK_PUBLISHABLE_KEY=\nWEB_ORIGIN=http://localhost:5173\nPORT=3001\n",
@@ -201,8 +202,13 @@ export const generateCreateScaffold = async (targetDirectory: string, config: Re
     throw new RepositoryStandardError("CONFIG_INVALID", `Target directory already exists: ${targetDirectory}.`);
   }
 
+  const strategy = selectGenerationStrategy(config);
   await mkdir(targetDirectory, { recursive: false });
-  if (config.project.type === "monorepo") {
+  if (strategy === "custom") {
+    await generateCustomStack(targetDirectory, config, runner);
+    return;
+  }
+  if (strategy === "monorepo") {
     const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
     await runner.run(pnpm, ["create", "vite", "apps/web", "--template", "react-ts", "--no-interactive"], targetDirectory);
     await writeMonorepoScaffold(targetDirectory, config.project.name);
@@ -212,10 +218,8 @@ export const generateCreateScaffold = async (targetDirectory: string, config: Re
       await writeMonorepoWebAuthScaffold(targetDirectory);
     }
     await runner.run(pnpm, ["install"], targetDirectory);
-    if (config.composition.authentication !== "clerk") {
-      await runner.run(pnpm, ["--filter", "./apps/api", "exec", "prisma", "generate"], targetDirectory);
-    }
-  } else if (config.composition.stack.framework === "vite@8") {
+    await runner.run(pnpm, ["--filter", "./apps/api", "exec", "prisma", "generate"], targetDirectory);
+  } else if (strategy === "web") {
     await runner.run(process.platform === "win32" ? "pnpm.cmd" : "pnpm", ["create", "vite", ".", "--template", "react-ts", "--no-interactive"], targetDirectory);
   }
 };

@@ -9,13 +9,16 @@ import type { GeneratorRunner } from "../application/generator-runner.js";
 import { buildInfo } from "../application/info-service.js";
 import { loadRegistry, type Registry } from "../core/registry/registry-loader.js";
 import type { ExtensionManifest } from "../core/registry/manifest.js";
+import { hasImplementedGenerator } from "../execution/generation-contract.js";
 import { parseArguments } from "./arguments.js";
+import { selectCustomStack } from "./custom-setup.js";
 import {
   conciseProjectTypeName,
   formatCreateSuccess,
   formatPresetPreview,
   formatPrompt,
   formatSelectOption,
+  formatWarning,
   helpText,
   infoText,
   type SelectOption
@@ -40,9 +43,10 @@ const defaultRegistryRoot = (): string => {
   return existsSync(sourceRegistry) ? sourceRegistry : path.resolve(directory, "../../../registry");
 };
 
-const terminalPrompt = (color: boolean): CliPrompt => {
+const terminalPrompt = (color: boolean): CliPrompt & { close(): void } => {
   const terminal = createInterface({ input: process.stdin, output: process.stdout });
   return {
+    close: () => terminal.close(),
     input: (message) => terminal.question(`${formatPrompt(message, color)}: `),
     select: async (message, choices) => {
       process.stdout.write(`${formatPrompt(message, color)}\n${choices.map((choice, index) => formatSelectOption(index + 1, choice, color)).join("\n")}\n`);
@@ -95,7 +99,7 @@ const orderedAuthenticationChoices = (
 const preferredAuthenticationCapability = (preset: ExtensionManifest | undefined): string | undefined =>
   preset?.selection?.capabilities?.find((capability) => capability.startsWith("auth-"));
 
-export const runCli = async (argv: readonly string[], io: CliIo): Promise<number> => {
+const runCommand = async (argv: readonly string[], io: CliIo): Promise<number> => {
   const command = parseArguments(argv);
 
   if (command.kind === "help") {
@@ -116,13 +120,13 @@ export const runCli = async (argv: readonly string[], io: CliIo): Promise<number
 
   if (command.kind === "create") {
     const color = io.color ?? (process.stdout.isTTY === true && process.env.NO_COLOR === undefined);
-    const interactive = io.prompt ?? (process.stdin.isTTY ? terminalPrompt(color) : undefined);
+    const interactive = io.prompt;
     const name = command.name ?? (interactive === undefined ? undefined : await interactive.input("Repository name"));
     const registryRoot = command.options.get("--registry") ?? defaultRegistryRoot();
     const registry = typeof registryRoot === "string" ? await loadRegistry(registryRoot) : undefined;
     const projectType = command.options.get("--type") ?? (interactive === undefined || registry === undefined
       ? undefined
-      : await interactive.select("Project type", registry.list("project-type").map((item) => ({
+      : await interactive.select("Project type", registry.list("project-type").filter((item) => hasImplementedGenerator(item.id)).map((item) => ({
           name: conciseProjectTypeName(item.displayName),
           value: item.id
         }))));
@@ -143,6 +147,24 @@ export const runCli = async (argv: readonly string[], io: CliIo): Promise<number
 
     let preset = typeof configuredPreset === "string" ? configuredPreset : undefined;
     let authentication = typeof configuredAuthentication === "string" ? configuredAuthentication : undefined;
+    let stack: Record<string, string> = {};
+    const chooseCustom = async (): Promise<boolean> => {
+      if (interactive === undefined) return true;
+      const selection = await selectCustomStack(registry, projectType, interactive);
+      if (selection === undefined) {
+        io.write(formatWarning("Choose a valid stack option.", color));
+        return false;
+      }
+      stack = selection;
+      if (authentication === undefined && authChoices.length > 0) {
+        authentication = await interactive.select("Authentication", authChoices);
+        if (!authChoices.some((choice) => choice.value === authentication)) {
+          io.write(formatWarning("Choose a valid authentication option.", color));
+          return false;
+        }
+      }
+      return true;
+    };
 
     if (authentication !== undefined && !authCapabilities.some((capability) => authenticationProvider(capability.id) === authentication)) {
       io.write(`Authentication capability "auth-${authentication}" is not available for ${projectType}.`);
@@ -155,11 +177,13 @@ export const runCli = async (argv: readonly string[], io: CliIo): Promise<number
         { name: "Custom", value: "custom", tone: "custom" }
       ];
       const setup = await interactive.select("Setup", setupChoices);
+      if (!setupChoices.some((choice) => choice.value === setup)) {
+        io.write(formatWarning("Choose Recommended or Custom.", color));
+        return 2;
+      }
       preset = setup === "recommended" ? recommendedPreset?.id : undefined;
 
-      if (setup === "custom" && authentication === undefined && authChoices.length > 0) {
-        authentication = await interactive.select("Authentication", authChoices) || undefined;
-      }
+      if (setup === "custom" && !await chooseCustom()) return 2;
     } else if (interactive === undefined && preset === undefined && authentication === undefined && authChoices.length > 0) {
       authentication = authChoices[0]?.value;
     }
@@ -173,7 +197,7 @@ export const runCli = async (argv: readonly string[], io: CliIo): Promise<number
       registryRoot,
       ...(preset === undefined ? {} : { preset }),
       ...(authentication === undefined ? {} : { authentication }),
-      stack: {},
+      stack,
       capabilities: [],
       agentMode: "automatic"
     });
@@ -201,28 +225,46 @@ export const runCli = async (argv: readonly string[], io: CliIo): Promise<number
 
         if (installation === "custom") {
           preset = undefined;
-          if (authentication === undefined && authChoices.length > 0) {
-            authentication = await interactive.select("Authentication", authChoices) || undefined;
-          }
+          if (!await chooseCustom()) return 2;
           plan = await planCreate({
             name,
             projectType,
             targetDirectory: target,
             registryRoot,
             ...(authentication === undefined ? {} : { authentication }),
-            stack: {},
+            stack,
             capabilities: [],
             agentMode: "automatic"
           });
-          io.write(plan.preview);
         } else if (installation !== "install") {
-          io.write("Choose Install or Choose Custom setup.");
+          io.write(formatWarning("Choose Install or Choose Custom setup.", color));
           return 2;
         }
       }
     }
 
-    if (selectedPreset === undefined) io.write(plan.preview);
+    if (preset === undefined) {
+      if (Object.keys(stack).length > 0) {
+        io.write(formatPresetPreview({
+          displayName: "Custom Stack",
+          selection: { stack: Object.fromEntries(Object.entries(stack).map(([category, reference]) => [
+            category, registry.get("stack-component", referenceId(reference))?.displayName ?? reference
+          ])) },
+          extraRows: authentication === undefined ? [] : [{ label: "Authentication", value: authentication }]
+        }, color));
+      }
+      io.write(plan.preview);
+      if (interactive !== undefined && Object.keys(stack).length > 0) {
+        const installation = await interactive.select("Install stack", [
+          { name: "Install", value: "install", tone: "success" },
+          { name: "Cancel", value: "cancel" }
+        ]);
+        if (installation !== "install") {
+          io.write(formatWarning("Creation cancelled. No files were written.", color));
+          return 2;
+        }
+      }
+    }
 
     if (interactive === undefined && command.options.get("--yes") !== true) {
       io.write("Review the plan and re-run with --yes to create files.");
@@ -237,4 +279,13 @@ export const runCli = async (argv: readonly string[], io: CliIo): Promise<number
   io.write(`Unknown command: ${command.value ?? ""}`.trim());
   io.write(helpText());
   return 2;
+};
+
+export const runCli = async (argv: readonly string[], io: CliIo): Promise<number> => {
+  const color = process.env.NO_COLOR === undefined && (io.color ?? process.stdout.isTTY === true);
+  const prompt = argv[0] === "create" && io.prompt === undefined && process.stdin.isTTY
+    ? terminalPrompt(color)
+    : undefined;
+  try { return await runCommand(argv, { ...io, color, ...(prompt === undefined ? {} : { prompt }) }); }
+  finally { prompt?.close(); }
 };
