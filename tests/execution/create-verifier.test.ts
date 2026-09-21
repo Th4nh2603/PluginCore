@@ -47,6 +47,14 @@ describe("create verifier", () => {
     await expect(verifyGeneratedRepository(target, ["../outside.txt"])).rejects.toMatchObject({ code: "PATH_OUTSIDE_ROOT" });
   });
 
+  it("rejects an absolute reported output path", async () => {
+    const target = await makeTarget();
+    const generated = path.join(target, "generated.txt");
+    await writeFile(generated, "ok");
+
+    await expect(verifyGeneratedRepository(target, [generated])).rejects.toMatchObject({ code: "CONFIG_INVALID" });
+  });
+
   it("rejects a missing reported generated file", async () => {
     const target = await makeTarget();
     await writeFile(path.join(target, "repo.config.yaml"), stringify(config));

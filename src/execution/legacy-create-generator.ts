@@ -209,12 +209,7 @@ const listGeneratedFiles = async (directory: string, root = directory): Promise<
 };
 
 export const generateCreateScaffold = async (targetDirectory: string, config: RepoConfig, runner: GeneratorRunner = defaultGeneratorRunner): Promise<GenerationResult> => {
-  if (existsSync(targetDirectory)) {
-    throw new RepositoryStandardError("CONFIG_INVALID", `Target directory already exists: ${targetDirectory}.`);
-  }
-
   const strategy = selectGenerationStrategy(config);
-  await mkdir(targetDirectory, { recursive: false });
   if (strategy === "custom") {
     await generateCustomStack(targetDirectory, config, runner);
   } else if (strategy === "monorepo") {

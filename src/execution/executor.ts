@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { rm } from "node:fs/promises";
+import { mkdir, rm } from "node:fs/promises";
 import path from "node:path";
 
 import { RepositoryStandardError } from "../core/errors.js";
@@ -26,6 +26,14 @@ export const executePlan = async (plan: ExecutionPlan, handlers: ExecutionHandle
     throw new RepositoryStandardError("CONFIG_INVALID", `Target directory already exists: ${targetDirectory}.`);
   }
 
+  let ownsTarget = false;
+  try {
+    await mkdir(targetDirectory);
+    ownsTarget = true;
+  } catch (error) {
+    throw new RepositoryStandardError("CONFIG_INVALID", `Target directory already exists: ${targetDirectory}.`, { cause: error });
+  }
+
   const generatedFiles = new Set<string>();
   try {
     for (const operation of plan.operations) {
@@ -47,7 +55,7 @@ export const executePlan = async (plan: ExecutionPlan, handlers: ExecutionHandle
       }
     }
   } catch (error) {
-    if (!existsSync(targetDirectory)) throw error;
+    if (!ownsTarget) throw error;
 
     try {
       await (handlers.removeTarget ?? ((target) => rm(target, { recursive: true, force: true })))(targetDirectory);

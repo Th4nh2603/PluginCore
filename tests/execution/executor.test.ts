@@ -39,7 +39,11 @@ describe("executePlan", () => {
   it("removes a target created before generator failure", async () => {
     const plan = await makePlan();
     await expect(executePlan(plan, {
-      generate: async () => { await mkdir(plan.targetDirectory); await writeFile(path.join(plan.targetDirectory, "partial.txt"), "partial"); throw new Error("generator failed"); },
+      generate: async () => {
+        expect(existsSync(plan.targetDirectory)).toBe(true);
+        await writeFile(path.join(plan.targetDirectory, "partial.txt"), "partial");
+        throw new Error("generator failed");
+      },
       writeConfig: async () => undefined, verify: async () => undefined, recordState: async () => undefined
     })).rejects.toThrow("generator failed");
     expect(existsSync(plan.targetDirectory)).toBe(false);
@@ -56,10 +60,12 @@ describe("executePlan", () => {
 
     const failingPlan = await makePlan();
     const primary = new Error("write failed");
-    await expect(executePlan(failingPlan, {
-      generate: async () => { await mkdir(failingPlan.targetDirectory); return { files: [] }; },
+    const failure = executePlan(failingPlan, {
+      generate: async () => ({ files: [] }),
       writeConfig: async () => { throw primary; }, verify: async () => undefined, recordState: async () => undefined,
       removeTarget: async () => { throw new Error("cannot remove"); }
-    })).rejects.toMatchObject({ code: "CREATE_ROLLBACK_FAILED", cause: primary, diagnosticData: { targetDirectory: path.resolve(failingPlan.targetDirectory) } });
+    });
+    await expect(failure).rejects.toMatchObject({ code: "CREATE_ROLLBACK_FAILED", diagnosticData: { targetDirectory: path.resolve(failingPlan.targetDirectory) } });
+    await failure.catch((error: Error) => expect(error.cause).toBe(primary));
   });
 });

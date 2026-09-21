@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { lstat, readFile } from "node:fs/promises";
+import { lstat, readFile, realpath } from "node:fs/promises";
 import path from "node:path";
 
 import { parse } from "yaml";
@@ -15,9 +15,10 @@ const invalid = (message: string, cause?: unknown): RepositoryStandardError =>
 
 export const verifyGeneratedRepository = async (targetDirectory: string, files: readonly string[]): Promise<RepoConfig> => {
   const seen = new Set<string>();
+  const physicalTarget = await realpath(targetDirectory);
 
   for (const file of files) {
-    if (file.length === 0 || seen.has(file)) {
+    if (file.length === 0 || path.isAbsolute(file) || seen.has(file)) {
       throw invalid(`Generated file list contains an invalid path: ${file}.`);
     }
     seen.add(file);
@@ -31,6 +32,10 @@ export const verifyGeneratedRepository = async (targetDirectory: string, files: 
     }
     if (!entry.isFile()) {
       throw invalid(`Generated output is not a file: ${file}.`);
+    }
+    const physicalFile = await realpath(resolved);
+    if (!physicalFile.startsWith(`${physicalTarget}${path.sep}`)) {
+      throw invalid(`Generated output resolves outside the target: ${file}.`);
     }
   }
 
