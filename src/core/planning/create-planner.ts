@@ -21,8 +21,9 @@ export const planCreateExecution = (input: CreatePlanningInput): ExecutionPlan =
     operations: [
       ...generateOperations,
       { type: "write-config", targetDirectory: input.targetDirectory, config: input.resolution.config },
-      { type: "verify", targetDirectory: input.targetDirectory },
-      { type: "record-state", targetDirectory: input.targetDirectory }
+      { type: "verify", targetDirectory: input.targetDirectory, phase: "generated" },
+      { type: "record-state", targetDirectory: input.targetDirectory },
+      { type: "verify", targetDirectory: input.targetDirectory, phase: "managed-state" }
     ]
   };
 };

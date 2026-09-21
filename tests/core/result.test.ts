@@ -31,4 +31,10 @@ describe("Result", () => {
     expect(error.code).toBe("CONFIG_INVALID");
     expect(error.diagnosticData).toEqual({ field: "project.name" });
   });
+
+  it("supports the stable rollback failure code", () => {
+    const error = new RepositoryStandardError("CREATE_ROLLBACK_FAILED", "Cleanup failed");
+
+    expect(error.code).toBe("CREATE_ROLLBACK_FAILED");
+  });
 });

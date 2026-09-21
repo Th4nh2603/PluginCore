@@ -23,7 +23,7 @@ const resolution: CreateResolutionPlan = {
 };
 
 describe("planCreateExecution", () => {
-  it("orders generation before config, verification, and managed-state recording", () => {
+  it("orders generation before config, phased verification, and managed-state recording", () => {
     const plan = planCreateExecution({ resolution, targetDirectory: "/tmp/demo" });
 
     expect(plan.targetDirectory).toBe("/tmp/demo");
@@ -31,8 +31,11 @@ describe("planCreateExecution", () => {
       "generate",
       "write-config",
       "verify",
-      "record-state"
+      "record-state",
+      "verify"
     ]);
+    expect(plan.operations.filter((operation) => operation.type === "verify").map((operation) => operation.phase))
+      .toEqual(["generated", "managed-state"]);
   });
 
   it("uses generic extension metadata instead of framework-specific planning branches", () => {

@@ -1,5 +1,6 @@
 export type RepositoryStandardErrorCode =
   | "CONFIG_INVALID"
+  | "CREATE_ROLLBACK_FAILED"
   | "MANIFEST_INVALID"
   | "PATH_OUTSIDE_ROOT"
   | "REGISTRY_CONFLICT";

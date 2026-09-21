@@ -7,6 +7,12 @@ export interface GenerateOperation {
   readonly targetDirectory: string;
 }
 
+export interface GenerationResult {
+  readonly files: readonly string[];
+}
+
+export type VerificationPhase = "generated" | "managed-state";
+
 export interface WriteConfigOperation {
   readonly type: "write-config";
   readonly targetDirectory: string;
@@ -16,6 +22,7 @@ export interface WriteConfigOperation {
 export interface VerifyOperation {
   readonly type: "verify";
   readonly targetDirectory: string;
+  readonly phase: VerificationPhase;
 }
 
 export interface RecordStateOperation {
