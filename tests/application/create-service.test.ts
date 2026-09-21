@@ -45,8 +45,11 @@ describe("planCreate", () => {
       "generate",
       "write-config",
       "verify",
-      "record-state"
+      "record-state",
+      "verify"
     ]);
+    expect(plan.executionPlan.operations.filter((operation) => operation.type === "verify").map((operation) => operation.phase))
+      .toEqual(["generated", "managed-state"]);
 
     await applyCreatePlan(plan);
 
@@ -82,6 +85,16 @@ describe("planCreate", () => {
 
     expect(commands).toEqual([[(process.platform === "win32" ? "pnpm.cmd" : "pnpm"), "create", "vite", ".", "--template", "react-ts", "--no-interactive", targetDirectory]]);
     expect(existsSync(path.join(targetDirectory, "repo.config.yaml"))).toBe(true);
+  });
+
+  it("removes the target when a generator fails after creation", async () => {
+    const root = await makeRoot();
+    const targetDirectory = path.join(root, "web-demo");
+    const plan = await planCreate({ name: "web-demo", projectType: "web", targetDirectory, registryRoot: path.join(process.cwd(), "registry"), preset: "recommended-web", stack: {}, agentMode: "automatic", capabilities: [] });
+
+    await expect(applyCreatePlan(plan, { run: async () => { throw new Error("generator failed"); } }))
+      .rejects.toThrow("generator failed");
+    expect(existsSync(targetDirectory)).toBe(false);
   });
 
   it("writes a Monorepo workspace with API and shared package sources", async () => {

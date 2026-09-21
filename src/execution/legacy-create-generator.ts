@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import type { RepoConfig } from "../core/config/repo-config.js";
@@ -8,6 +8,7 @@ import { loadRegistry } from "../core/registry/registry-loader.js";
 import { defaultGeneratorRunner, type GeneratorRunner } from "./generator-runner.js";
 import { generateCustomStack } from "./custom-stack-generator.js";
 import { selectGenerationStrategy } from "./generation-contract.js";
+import type { GenerationResult } from "../core/planning/execution-plan.js";
 
 export type AuthenticationProvider = "custom" | "clerk";
 
@@ -197,7 +198,17 @@ export const planCreate = async (input: CreateInput): Promise<CreatePlan> => {
   };
 };
 
-export const generateCreateScaffold = async (targetDirectory: string, config: RepoConfig, runner: GeneratorRunner = defaultGeneratorRunner): Promise<void> => {
+const listGeneratedFiles = async (directory: string, root = directory): Promise<string[]> => {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const files = await Promise.all(entries.map(async (entry) => {
+    const entryPath = path.join(directory, entry.name);
+    if (entry.isDirectory()) return listGeneratedFiles(entryPath, root);
+    return entry.isFile() ? [path.relative(root, entryPath).split(path.sep).join("/")] : [];
+  }));
+  return files.flat().sort();
+};
+
+export const generateCreateScaffold = async (targetDirectory: string, config: RepoConfig, runner: GeneratorRunner = defaultGeneratorRunner): Promise<GenerationResult> => {
   if (existsSync(targetDirectory)) {
     throw new RepositoryStandardError("CONFIG_INVALID", `Target directory already exists: ${targetDirectory}.`);
   }
@@ -206,9 +217,7 @@ export const generateCreateScaffold = async (targetDirectory: string, config: Re
   await mkdir(targetDirectory, { recursive: false });
   if (strategy === "custom") {
     await generateCustomStack(targetDirectory, config, runner);
-    return;
-  }
-  if (strategy === "monorepo") {
+  } else if (strategy === "monorepo") {
     const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
     await runner.run(pnpm, ["create", "vite", "apps/web", "--template", "react-ts", "--no-interactive"], targetDirectory);
     await writeMonorepoScaffold(targetDirectory, config.project.name);
@@ -222,4 +231,5 @@ export const generateCreateScaffold = async (targetDirectory: string, config: Re
   } else if (strategy === "web") {
     await runner.run(process.platform === "win32" ? "pnpm.cmd" : "pnpm", ["create", "vite", ".", "--template", "react-ts", "--no-interactive"], targetDirectory);
   }
+  return { files: await listGeneratedFiles(targetDirectory) };
 };

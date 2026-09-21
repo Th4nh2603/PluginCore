@@ -11,6 +11,7 @@ import {
 import { planCreateExecution } from "../core/planning/create-planner.js";
 import type { ExecutionPlan } from "../core/planning/execution-plan.js";
 import { executePlan } from "../execution/executor.js";
+import { verifyGeneratedRepository, verifyManagedState } from "../execution/create-verifier.js";
 import { createManagedState, writeYamlAtomically } from "../execution/project-state.js";
 import { generateCreateScaffold } from "../execution/legacy-create-generator.js";
 import { selectGenerationStrategy } from "../execution/generation-contract.js";
@@ -81,11 +82,18 @@ export const applyCreatePlan = async (plan: CreatePlan, runner: GeneratorRunner 
   await executePlan(plan.executionPlan, {
     generate: async (operation) => {
       if (operation.extension.kind === "project-type") {
-        await generateCreateScaffold(operation.targetDirectory, plan.config, runner);
+        return generateCreateScaffold(operation.targetDirectory, plan.config, runner);
       }
+      return { files: [] };
     },
     writeConfig: async (operation) => writeYamlAtomically(path.join(operation.targetDirectory, "repo.config.yaml"), operation.config),
-    verify: async () => undefined,
+    verify: async (operation, generatedFiles) => {
+      if (operation.phase === "generated") {
+        await verifyGeneratedRepository(operation.targetDirectory, generatedFiles);
+        return;
+      }
+      await verifyManagedState(operation.targetDirectory, configText);
+    },
     recordState: async (operation) => writeYamlAtomically(
       path.join(operation.targetDirectory, ".repo-standard", "managed-state.yaml"),
       createManagedState(configText)
