@@ -33,6 +33,11 @@ describe("recommended create wizard", () => {
               return "recommended";
             }
 
+            if (message === "Recommended preset") {
+              expect(choices.map((choice) => choice.value)).toEqual(["recommended-monorepo"]);
+              return "recommended-monorepo";
+            }
+
             if (message === "Install stack") {
               expect(choices.map((choice) => choice.name)).toEqual(["Install", "Choose Custom setup"]);
               return "install";
@@ -48,7 +53,7 @@ describe("recommended create wizard", () => {
       } as never);
 
       expect(exitCode).toBe(0);
-      expect(selectMessages).toEqual(["Project type", "Setup", "Install stack"]);
+      expect(selectMessages).toEqual(["Project type", "Setup", "Recommended preset", "Install stack"]);
       expect(output.join("\n")).toContain("Recommended Monorepo");
       expect(output.join("\n")).toContain("Frontend: Vite + React");
       expect(output.join("\n")).toContain("Authentication: Custom Authentication");
@@ -114,7 +119,7 @@ describe("recommended create wizard", () => {
         write: (line: string) => output.push(line),
         prompt: {
           input: async () => "unused",
-          select: async (message: string) => message === "Setup" ? "recommended" : "",
+          select: async (message: string) => ({ Setup: "recommended", "Recommended preset": "recommended-monorepo" }[message] ?? ""),
           confirm: async () => false
         },
         generatorRunner: { run: async () => { throw new Error("Generator must not run without approval."); } }

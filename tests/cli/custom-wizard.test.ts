@@ -23,6 +23,7 @@ describe("Custom stack wizard", () => {
           select: async (message, choices) => {
             prompts.push(message);
             if (message === "Setup") return fromRecommended ? "recommended" : "custom";
+            if (message === "Recommended preset") return "recommended-monorepo";
             if (message === "Frontend") {
               expect(choices.map((choice) => choice.value)).toEqual(["react", "vue"]);
               return "vue";

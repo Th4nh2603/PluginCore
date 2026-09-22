@@ -112,18 +112,24 @@ describe("runCli", () => {
     }
   });
 
-  it("offers and applies a compatible recommended preset", async () => {
+  it("lets the user select a compatible recommended preset", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-recommended-"));
     const targetDirectory = path.join(root, "web-demo");
     const output: string[] = [];
+    let selectedRecommendedPreset = false;
     try {
       const exitCode = await runCli(["create", "web-demo", "--target", targetDirectory], {
         write: (line: string) => output.push(line),
         prompt: {
           input: async () => "unused",
-          select: async (message: string) => {
+          select: async (message: string, choices: readonly { readonly name: string; readonly value: string }[]) => {
             if (message === "Project type") return "web";
             if (message === "Setup") return "recommended";
+            if (message === "Recommended preset") {
+              selectedRecommendedPreset = true;
+              expect(choices).toEqual([{ name: "Recommended Web Stack", value: "recommended-web", tone: "recommended" }]);
+              return "recommended-web";
+            }
             if (message === "Install stack") return "install";
             throw new Error(`Unexpected select prompt: ${message}`);
           },
@@ -132,6 +138,7 @@ describe("runCli", () => {
         generatorRunner: { run: async () => undefined }
       } as never);
       expect(exitCode).toBe(0);
+      expect(selectedRecommendedPreset).toBe(true);
       expect(output.join("\n")).toContain("Recommended Web");
       expect(output.join("\n")).toContain("Framework: Vite");
       expect(output.join("\n")).not.toContain("Testing: Vitest");
@@ -183,6 +190,7 @@ describe("runCli", () => {
           select: async (message: string) => {
             if (message === "Project type") return "monorepo";
             if (message === "Setup") return "recommended";
+            if (message === "Recommended preset") return "recommended-monorepo";
             if (message === "Install stack") return "install";
             throw new Error(`Unexpected select prompt: ${message}`);
           },

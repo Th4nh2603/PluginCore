@@ -181,7 +181,19 @@ const runCommand = async (argv: readonly string[], io: CliIo): Promise<number> =
         io.write(formatWarning("Choose Recommended or Custom.", color));
         return 2;
       }
-      preset = setup === "recommended" ? recommendedPreset?.id : undefined;
+      if (setup === "recommended") {
+        const presetChoices: SelectOption[] = compatiblePresets.map((item) => ({
+          name: item.displayName,
+          value: item.id,
+          tone: "recommended"
+        }));
+        const selectedPreset = await interactive.select("Recommended preset", presetChoices);
+        if (!presetChoices.some((choice) => choice.value === selectedPreset)) {
+          io.write(formatWarning("Choose a valid recommended preset.", color));
+          return 2;
+        }
+        preset = selectedPreset;
+      }
 
       if (setup === "custom" && !await chooseCustom()) return 2;
     } else if (interactive === undefined && preset === undefined && authentication === undefined && authChoices.length > 0) {
