@@ -92,6 +92,8 @@
 
 ### Task 4: Extract authentication as capabilities
 
+**Status:** Complete in `49fb097` (`refactor: model authentication as capabilities`). The auth manifests and generic capability resolver already existed when this task began. This task made the selected capability own file generation, moved Custom/Clerk templates into `src/execution/capabilities/`, and added a pre-write check for capabilities without an executor. Task 5 is next.
+
 **Files:**
 - Create: `registry/capabilities/auth-custom/manifest.yaml`
 - Create: `registry/capabilities/auth-clerk/manifest.yaml`
@@ -108,13 +110,13 @@
 - Legacy CLI `--auth custom|clerk` maps to capability IDs `auth-custom` / `auth-clerk`.
 - Generic application/core logic receives capability selections and does not branch on Clerk implementation details.
 
-- [ ] **Step 1: Write failing capability resolution tests** for existence, compatibility, and missing dependency behavior.
-- [ ] **Step 2: Write failing CLI compatibility tests** proving `--auth clerk` maps to the Clerk capability while preserving UX.
-- [ ] **Step 3: Run focused tests and verify RED.**
-- [ ] **Step 4: Add auth capability manifests and resolver.**
-- [ ] **Step 5: Move custom/Clerk file generation into capability executors and remove provider-specific bodies from `create-service.ts`.**
-- [ ] **Step 6: Run auth/create/CLI tests and full verification.**
-- [ ] **Step 7: Commit** `refactor: model authentication as capabilities`.
+- [x] **Step 1: Confirm capability resolution tests** for existence, compatibility, and dependency ordering; these tests were already present.
+- [x] **Step 2: Add CLI compatibility coverage** proving `--auth clerk` maps to the Clerk capability while preserving UX.
+- [x] **Step 3: Run focused auth-generation tests and verify RED** before moving generation into capability executors.
+- [x] **Step 4: Reuse the existing auth capability manifests and resolver** and set `auth-custom` as the Monorepo default in its manifest.
+- [x] **Step 5: Move custom/Clerk file generation into capability executors and keep provider-specific bodies out of generic Core/Application code.**
+- [x] **Step 6: Run auth/create/CLI tests and full verification.**
+- [x] **Step 7: Commit** `refactor: model authentication as capabilities`.
 
 ### Task 5: Resolve and render agents through an adapter
 

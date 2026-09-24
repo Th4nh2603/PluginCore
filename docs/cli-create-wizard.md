@@ -49,6 +49,8 @@ CLI hiện tên project, điểm bắt đầu (và trạng thái đã chỉnh n�
 
 Nếu chỉnh preset, `repo.config.yaml` vẫn lưu ID preset cùng các giá trị stack đã ghi đè. Nếu bắt đầu từ Custom thì không có preset. CLI chỉ ghi file sau khi chọn **Install**.
 
+Lựa chọn Authentication được lưu thành `auth-custom` hoặc `auth-clerk` trong `composition.capabilities`. Trường `composition.authentication` cũng được ghi để giữ tương thích với cấu hình cũ. CLI kiểm tra capability có executor trước khi tạo thư mục project.
+
 ## 5. Web, API và Empty
 
 Các loại project này giữ luồng hiện tại: `Setup` → Recommended preset hoặc Custom → xem stack → `Install stack`. Custom Web hỏi Frontend; Custom API hỏi Backend và ORM. Empty không có thành phần stack để chọn.

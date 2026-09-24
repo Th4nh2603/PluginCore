@@ -56,6 +56,8 @@ CLI hiển thị bảng tóm tắt cấu hình trước khi tạo. Với Monorep
 
 Custom monorepo có `apps/web`, `apps/api`, `packages/shared`. Với Custom authentication, web có form đăng ký/đăng nhập; với Clerk, điền API keys theo README của project. ORM vẫn được tạo khi dùng Clerk để quản lý dữ liệu ứng dụng.
 
+Authentication của Monorepo được lưu trong `composition.capabilities` của `repo.config.yaml` dưới ID `auth-custom` hoặc `auth-clerk`. `--auth` và lựa chọn trong wizard cùng chọn capability này; `composition.authentication` vẫn được ghi để tương thích với cấu hình cũ. Khi tạo project, executor của capability được chọn sinh phần web/API và cấu hình xác thực. Một capability có manifest trong registry nhưng chưa có executor sẽ bị từ chối trước khi tạo thư mục đích.
+
 Màu CLI: cyan cho tiêu đề, tím cho lựa chọn, xanh lá cho thành công, vàng cho cảnh báo. Đặt biến môi trường `NO_COLOR` để tắt màu; output được chuyển hướng mặc định không có màu.
 
 Tên project chỉ dùng chữ, số và dấu gạch ngang. Thư mục đích phải chưa tồn tại; mặc định là thư mục mang tên project trong thư mục hiện tại.
