@@ -102,12 +102,13 @@ describe("formatMonorepoReview", () => {
   it("shows the edited preset and every choice before Install", () => {
     const review = formatMonorepoReview({
       name: "platform", targetDirectory: "/tmp/platform", startingPoint: "Recommended Monorepo", changed: true,
-      frontend: "Vue", backend: "Express", orm: "Prisma", authentication: "Clerk Authentication"
+      frontend: "Vue", backend: "Express", orm: "Prisma", authentication: "Clerk Authentication", mcpEnabled: true
     }, false);
 
     expect(review).toContain("Starting point: Recommended Monorepo · edited");
     expect(review).toContain("Frontend: Vue");
     expect(review).toContain("Authentication: Clerk Authentication");
+    expect(review).toContain("MCP: On");
     expect(review).toContain("Fixed stack: Vite · TypeScript · pnpm workspace · PostgreSQL · Vitest");
     expect(review).toContain("Target: /tmp/platform");
   });

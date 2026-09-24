@@ -50,16 +50,27 @@ export const resolveCreateComposition = (input: CreateResolutionInput): CreateRe
     );
   }
 
-  const configuredCapabilities: (string | CapabilitySelection)[] = input.capabilities.length > 0
-    ? [...input.capabilities]
-    : [...(preset?.selection?.capabilities ?? [])];
+  const chosen = new Map<string, string | CapabilitySelection>();
+  for (const id of preset?.selection?.capabilities ?? projectType.selection?.capabilities ?? []) chosen.set(id, id);
+  for (const capability of input.capabilities) chosen.set(capability.id, capability);
+  if (input.authentication !== undefined) {
+    for (const id of chosen.keys()) {
+      if (id.startsWith(authenticationCapabilityPrefix)) chosen.delete(id);
+    }
+    const id = `${authenticationCapabilityPrefix}${input.authentication}`;
+    chosen.set(id, id);
+  }
+  const selections = [...chosen.values()];
+  const requestedCapabilities = [
+    ...selections.filter((selection) => selectionId(selection).startsWith(authenticationCapabilityPrefix)),
+    ...selections.filter((selection) => !selectionId(selection).startsWith(authenticationCapabilityPrefix))
+  ];
 
-  const requestedCapabilities = input.authentication === undefined
-    ? configuredCapabilities
-    : [
-        ...configuredCapabilities.filter((selection) => !selectionId(selection).startsWith(authenticationCapabilityPrefix)),
-        `${authenticationCapabilityPrefix}${input.authentication}`
-      ];
+  if (input.projectType === "monorepo" && !requestedCapabilities.some((selection) =>
+    selectionId(selection).startsWith(authenticationCapabilityPrefix)
+  )) {
+    throw new RepositoryStandardError("CONFIG_INVALID", "Monorepo requires an authentication capability.");
+  }
 
   const capabilityResolution = resolveCapabilities({
     registry: input.registry,
@@ -67,9 +78,13 @@ export const resolveCreateComposition = (input: CreateResolutionInput): CreateRe
     requested: requestedCapabilities
   });
 
-  const authenticationCapability = capabilityResolution.capabilities.find((capability) =>
+  const authenticationCapabilities = capabilityResolution.capabilities.filter((capability) =>
     capability.id.startsWith(authenticationCapabilityPrefix)
   );
+  if (authenticationCapabilities.length > 1) {
+    throw new RepositoryStandardError("CONFIG_INVALID", "Select exactly one authentication capability for Monorepo.");
+  }
+  const authenticationCapability = authenticationCapabilities[0];
   const authentication = authenticationCapability?.id.slice(authenticationCapabilityPrefix.length);
 
   const candidate = {

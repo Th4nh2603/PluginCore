@@ -15,6 +15,8 @@ import { verifyGeneratedRepository, verifyManagedState } from "../execution/crea
 import { createManagedState, writeYamlAtomically } from "../execution/project-state.js";
 import { generateCreateScaffold } from "../execution/legacy-create-generator.js";
 import { selectGenerationStrategy } from "../execution/generation-contract.js";
+import { generateAuthenticationCapability, selectAuthenticationExecutor } from "../execution/capabilities/authentication.js";
+import { generateMcpCapability } from "../execution/capabilities/mcp-server.js";
 import { stringify } from "yaml";
 import { defaultGeneratorRunner, type GeneratorRunner } from "./generator-runner.js";
 
@@ -64,6 +66,7 @@ export const planCreate = async (input: CreateInput): Promise<CreatePlan> => {
     ...(input.authentication === undefined ? {} : { authentication: input.authentication })
   });
   selectGenerationStrategy(resolution.config);
+  selectAuthenticationExecutor(resolution.config);
   const executionPlan = planCreateExecution({ resolution, targetDirectory });
 
   return {
@@ -82,7 +85,13 @@ export const applyCreatePlan = async (plan: CreatePlan, runner: GeneratorRunner 
   await executePlan(plan.executionPlan, {
     generate: async (operation) => {
       if (operation.extension.kind === "project-type") {
-        return generateCreateScaffold(operation.targetDirectory, plan.config, runner);
+        return generateCreateScaffold(operation.targetDirectory, plan.config, runner, true);
+      }
+      if (operation.extension.kind === "capability" && operation.extension.id.startsWith("auth-")) {
+        return generateAuthenticationCapability(operation.targetDirectory, plan.config, operation.extension.id, runner);
+      }
+      if (operation.extension.kind === "capability" && operation.extension.id === "mcp-server") {
+        return generateMcpCapability(operation.targetDirectory, plan.config, runner);
       }
       return { files: [] };
     },

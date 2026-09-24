@@ -35,6 +35,7 @@ export interface MonorepoReview {
   readonly backend: string;
   readonly orm: string;
   readonly authentication: string;
+  readonly mcpEnabled: boolean;
 }
 
 const paint = (value: string, code: string | number, enabled: boolean): string => enabled ? `\u001B[${code}m${value}\u001B[0m` : value;
@@ -110,6 +111,7 @@ export const formatMonorepoReview = (review: MonorepoReview, color: boolean): st
   `Backend: ${review.backend}`,
   `ORM: ${review.orm}`,
   `Authentication: ${review.authentication}`,
+  `MCP: ${review.mcpEnabled ? "On" : "Off"}`,
   "Fixed stack: Vite · TypeScript · pnpm workspace · PostgreSQL · Vitest",
   `Target: ${review.targetDirectory}`,
   paint("────────────────────────────────────", 90, color)
@@ -140,6 +142,6 @@ Usage:
   repo --help
   repo info
   repo doctor
-  repo create <name> [--auth <provider>]`;
+  repo create <name> [--auth <provider>] [--capability mcp-server]`;
 
 export const infoText = (info: PluginInfo): string => `${info.id} ${info.version}`;

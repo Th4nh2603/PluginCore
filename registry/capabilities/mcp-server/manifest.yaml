@@ -1,0 +1,7 @@
+schemaVersion: 1
+id: mcp-server
+kind: capability
+version: 1.0.0
+displayName: Local MCP Server
+description: Expose generated application functions to local AI hosts over stdio.
+compatibility: { projectTypes: [api, monorepo] }

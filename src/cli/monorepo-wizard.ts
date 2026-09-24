@@ -16,6 +16,7 @@ export interface MonorepoSelection {
   readonly preset?: string;
   readonly stack: Readonly<Record<string, string>>;
   readonly authentication: string;
+  readonly mcpEnabled: boolean;
   readonly startingPoint: string;
   readonly changed: boolean;
 }
@@ -23,6 +24,7 @@ export interface MonorepoSelection {
 export interface MonorepoEditorInput {
   readonly preset?: string;
   readonly authentication?: string;
+  readonly mcpEnabled?: boolean;
   readonly previous?: MonorepoSelection;
 }
 
@@ -84,6 +86,9 @@ export const runMonorepoEditor = async (
   const authOptions = registry.list("capability")
     .filter((item) => item.id.startsWith("auth-") && compatible(item))
     .sort((left, right) => Number(right.id === "auth-custom") - Number(left.id === "auth-custom") || left.id.localeCompare(right.id));
+  const mcpAvailable = registry.get("capability", "mcp-server") !== undefined &&
+    compatible(registry.get("capability", "mcp-server")!);
+  let mcpEnabled = input.mcpEnabled ?? input.previous?.mcpEnabled ?? false;
   if (categories.some((category) => options[category.key].length === 0) || (input.authentication === undefined && authOptions.length === 0)) return undefined;
   if (input.authentication !== undefined && !authOptions.some((item) => item.id === `auth-${input.authentication}`)) return undefined;
 
@@ -124,6 +129,9 @@ export const runMonorepoEditor = async (
       ...(input.authentication === undefined
         ? [{ name: `Authentication: ${displayValue(registry, "auth", values.auth)}`, value: "edit:auth" }]
         : []),
+      ...(mcpAvailable && input.mcpEnabled === undefined
+        ? [{ name: `MCP: ${mcpEnabled ? "On" : "Off"}`, value: "edit:mcp" }]
+        : []),
       {
         name: `Continue — ${input.authentication === undefined ? "" : `Authentication: ${displayValue(registry, "auth", values.auth)} (fixed) · `}fixed: Vite · TypeScript · pnpm workspace · PostgreSQL · Vitest`,
         value: "continue",
@@ -144,15 +152,25 @@ export const runMonorepoEditor = async (
         if (initial === undefined || !equivalentReference(chosen, initial)) stack[category.stackKey] = chosen;
       }
       const changed = preset !== undefined && (
-        Object.keys(stack).length > 0 || values.auth !== preferredAuth(preset)
+        Object.keys(stack).length > 0 || values.auth !== preferredAuth(preset) || mcpEnabled
       );
       return {
         ...(preset === undefined ? {} : { preset: preset.id }),
         stack,
         authentication: values.auth,
+        mcpEnabled,
         startingPoint,
         changed
       };
+    }
+    if (action === "edit:mcp") {
+      const choice = await prompt.select("MCP", [
+        { name: "Off", value: "off" },
+        { name: "On", value: "on" }
+      ]);
+      if (choice !== "off" && choice !== "on") return undefined;
+      mcpEnabled = choice === "on";
+      continue;
     }
     if (action === "edit:auth") {
       if (input.authentication !== undefined) continue;

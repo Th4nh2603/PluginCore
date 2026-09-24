@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -13,6 +14,17 @@ afterEach(async () => {
 });
 
 describe("planCreate resolution boundary", () => {
+  it("rejects MCP on Web before creating files", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-mcp-web-"));
+    roots.push(root);
+    const targetDirectory = path.join(root, "demo");
+    await expect(planCreate({
+      name: "demo", projectType: "web", targetDirectory,
+      registryRoot: path.resolve("registry"), preset: "recommended-web", stack: {},
+      agentMode: "automatic", capabilities: [{ id: "mcp-server", version: "1.0.0" }]
+    })).rejects.toThrow(/not compatible|not available/i);
+    expect(existsSync(targetDirectory)).toBe(false);
+  });
   it("rejects a stack value that violates the canonical extension reference schema", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-resolution-"));
     roots.push(root);

@@ -1,5 +1,7 @@
 # Luồng `repo create`
 
+API và Monorepo có lựa chọn MCP Off/On. Khi bật, project sinh ra có lệnh `pnpm mcp` và tool `get_health`; xem [hướng dẫn MCP chi tiết](mcp-generated-projects.md).
+
 Trong terminal, dùng **↑/↓** để di chuyển và **Enter** để chọn. Tên repository được nhập bằng chữ. Tham số đã truyền trên lệnh sẽ bỏ qua câu hỏi tương ứng.
 
 ## 1. Tên và loại project
@@ -48,6 +50,8 @@ CLI hiện tên project, điểm bắt đầu (và trạng thái đã chỉnh n�
 | Cancel | Dừng mà không tạo file. |
 
 Nếu chỉnh preset, `repo.config.yaml` vẫn lưu ID preset cùng các giá trị stack đã ghi đè. Nếu bắt đầu từ Custom thì không có preset. CLI chỉ ghi file sau khi chọn **Install**.
+
+Lựa chọn Authentication được lưu thành `auth-custom` hoặc `auth-clerk` trong `composition.capabilities`. Trường `composition.authentication` cũng được ghi để giữ tương thích với cấu hình cũ. CLI kiểm tra capability có executor trước khi tạo thư mục project.
 
 ## 5. Web, API và Empty
 
