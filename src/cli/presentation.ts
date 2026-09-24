@@ -17,11 +17,24 @@ export interface SelectOption {
   readonly name: string;
   readonly value: string;
   readonly tone?: SelectTone;
+  readonly stack?: Readonly<Record<string, string>>;
+  readonly extraRows?: readonly PreviewRow[];
 }
 
 export interface CreateSuccess {
   readonly targetDirectory: string;
   readonly projectType: string;
+}
+
+export interface MonorepoReview {
+  readonly name: string;
+  readonly targetDirectory: string;
+  readonly startingPoint: string;
+  readonly changed: boolean;
+  readonly frontend: string;
+  readonly backend: string;
+  readonly orm: string;
+  readonly authentication: string;
 }
 
 const paint = (value: string, code: string | number, enabled: boolean): string => enabled ? `\u001B[${code}m${value}\u001B[0m` : value;
@@ -34,30 +47,15 @@ const titleCase = (value: string): string => value
 
 const previewCategory = (category: string): string => {
   if (category === "orm") return "ORM";
-  if (category === "workspace") return "Workspace";
-  if (category.startsWith("frontend-")) return "Frontend";
-  if (category.startsWith("backend-")) return "Backend";
-  if (category === "language" || category.endsWith("-language")) return "Language";
-  if (category === "testing") return "Testing";
-  return titleCase(category.replace(/-(framework|library)$/u, ""));
+  return titleCase(category);
 };
 
 const compactRecommendedTitle = (displayName: string): string => displayName
   .split(" — ")[0]
   ?.replace(/\s+Stack$/u, "") ?? displayName;
 
-const stackRows = (stack: Readonly<Record<string, string>>): readonly PreviewRow[] => {
-  const rows = new Map<string, string[]>();
-
-  for (const [category, value] of Object.entries(stack)) {
-    const label = previewCategory(category);
-    const values = rows.get(label) ?? [];
-    values.push(value);
-    rows.set(label, values);
-  }
-
-  return [...rows.entries()].map(([label, values]) => ({ label, value: values.join(" + ") }));
-};
+const stackRows = (stack: Readonly<Record<string, string>>): readonly PreviewRow[] =>
+  Object.entries(stack).map(([category, value]) => ({ label: previewCategory(category), value }));
 
 export const conciseProjectTypeName = (displayName: string): string => (displayName.split(" — ")[0] ?? displayName)
   .replace(/\s+Application$/u, "");
@@ -71,7 +69,14 @@ export const formatSelectOption = (index: number, option: SelectOption, color: b
 
   if (option.tone === "recommended") {
     const name = option.name.replace(/^★\s*/u, "");
-    return `${prefix} ${paint("★", 33, color)} ${paint(name, 92, color)}`;
+    const rows = [...stackRows(option.stack ?? {}), ...(option.extraRows ?? [])];
+    const label = rows.length > 0 ? compactRecommendedTitle(name) : name;
+    return [
+      `${prefix} ${paint("★", 33, color)} ${paint(label, 95, color)}`,
+      ...rows.map((row) => color
+        ? `  ${paint(row.label.padEnd(16), 95, true)} ${paint(row.value, 92, true)}`
+        : `  ${row.label}: ${row.value}`)
+    ].join("\n");
   }
 
   if (option.tone === "custom") return `${prefix} ${paint(option.name, 95, color)}`;
@@ -94,6 +99,21 @@ export const formatCreateSuccess = ({ targetDirectory, projectType }: CreateSucc
     ...nextSteps.map((step) => `  ${paint(step, 97, color)}`)
   ].join("\n");
 };
+
+export const formatMonorepoReview = (review: MonorepoReview, color: boolean): string => [
+  paint("Review before Install", "1;36", color),
+  paint("────────────────────────────────────", 90, color),
+  `Project: ${review.name}`,
+  "Type: Monorepo",
+  `Starting point: ${review.startingPoint}${review.changed ? " · edited" : ""}`,
+  `Frontend: ${review.frontend}`,
+  `Backend: ${review.backend}`,
+  `ORM: ${review.orm}`,
+  `Authentication: ${review.authentication}`,
+  "Fixed stack: Vite · TypeScript · pnpm workspace · PostgreSQL · Vitest",
+  `Target: ${review.targetDirectory}`,
+  paint("────────────────────────────────────", 90, color)
+].join("\n");
 
 export const formatPreviewRow = (row: PreviewRow, color: boolean): string =>
   `  ${paint(row.label.padEnd(16), 90, color)} ${paint(row.value, 97, color)}`;

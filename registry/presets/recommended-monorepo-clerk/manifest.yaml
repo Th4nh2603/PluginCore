@@ -1,8 +1,8 @@
 schemaVersion: 1
-id: recommended-monorepo
+id: recommended-monorepo-clerk
 kind: preset
 version: 1.0.0
-displayName: Recommended Monorepo Custom Auth — pnpm workspace, Vite + React, Express, shared TypeScript
+displayName: Recommended Monorepo Clerk Auth — pnpm workspace, Vite + React, Express, shared TypeScript
 compatibility: { projectTypes: [monorepo] }
 selection:
   stack:
@@ -15,4 +15,4 @@ selection:
     database: postgresql@16
     orm: prisma@6
   capabilities:
-    - auth-custom
+    - auth-clerk

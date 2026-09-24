@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mock UX · repo create</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      background: #0a101b;
+      color: #e5eaf6;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 320px; }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    button:focus-visible, input:focus-visible { outline: 2px solid #74e7db; outline-offset: 3px; }
+    .page { max-width: 1320px; margin: auto; padding: clamp(22px, 4vw, 54px); }
+    .topline { display: flex; justify-content: space-between; align-items: center; gap: 20px; color: #8290aa; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
+    .brand { color: #91f5e9; font-weight: 800; letter-spacing: .17em; }
+    h1 { max-width: 850px; margin: 54px 0 16px; font-size: clamp(34px, 5.2vw, 68px); line-height: 1.05; letter-spacing: -.07em; }
+    .lead { max-width: 850px; color: #9eabc3; line-height: 1.65; font-size: 15px; }
+    .badge { color: #f8a8ea; border: 1px solid #a65a98; border-radius: 99px; padding: 5px 10px; white-space: nowrap; }
+    .workspace { display: grid; grid-template-columns: minmax(245px, .7fr) minmax(0, 1.8fr); gap: 22px; margin-top: 36px; }
+    .aside, .terminal { border: 1px solid #243047; border-radius: 16px; background: #101827; box-shadow: 0 22px 70px #02050b60; }
+    .aside { padding: 26px; align-self: start; }
+    .eyebrow { font-size: 11px; text-transform: uppercase; letter-spacing: .15em; color: #78dcd4; font-weight: 800; }
+    .aside h2 { margin: 10px 0 17px; font-size: 22px; letter-spacing: -.04em; }
+    .aside p { color: #9cabc2; font-size: 13px; line-height: 1.65; }
+    .steps { padding: 0; list-style: none; display: grid; gap: 10px; margin: 27px 0 30px; }
+    .steps li { display: flex; align-items: center; gap: 12px; color: #78869f; font-size: 13px; }
+    .steps li.active { color: #f6acd9; }
+    .steps li.done { color: #8aebc9; }
+    .step-number { display: grid; place-items: center; width: 27px; height: 27px; border: 1px solid currentColor; border-radius: 50%; font-weight: 800; }
+    .note { border-top: 1px solid #27334a; padding-top: 16px; }
+    .terminal { overflow: hidden; }
+    .terminalbar { display: flex; align-items: center; gap: 8px; height: 42px; padding: 0 18px; border-bottom: 1px solid #253047; background: #151e2e; color: #8e9bb3; font-size: 11px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: #e67479; }
+    .dot:nth-child(2) { background: #e4be67; }
+    .dot:nth-child(3) { background: #79d5b3; }
+    .terminalbar span:last-child { margin-left: auto; }
+    .terminalbody { padding: clamp(19px, 3vw, 34px); min-height: 550px; }
+    .command { color: #7ce1d8; margin: 0 0 30px; font-size: 13px; }
+    .prompt-title { font-size: clamp(17px, 2.3vw, 24px); color: #86eae1; margin: 0 0 18px; letter-spacing: -.04em; }
+    .field-label { display: block; color: #a8b5c9; margin: 24px 0 9px; font-size: 12px; }
+    .field-input { width: min(100%, 440px); padding: 13px 15px; border: 1px solid #40506e; border-radius: 8px; background: #0c1320; color: #f1f5fb; }
+    .readonly { color: #b7c3d7; border: 1px solid #33435e; border-radius: 8px; padding: 12px 15px; width: fit-content; min-width: 180px; }
+    .choice-list { display: grid; gap: 8px; margin: 16px 0 0; max-width: 660px; }
+    .choice { display: flex; gap: 14px; align-items: flex-start; text-align: left; width: 100%; padding: 14px 16px; border: 1px solid #344158; border-radius: 9px; background: #141e2f; color: #c7d2e4; transition: background .15s, border-color .15s; }
+    .choice:hover, .choice.selected { border-color: #da82c8; background: #241d35; }
+    .pointer { color: #eea8e1; font-weight: 900; width: 17px; flex: none; }
+    .choice-name { display: block; color: #f3a9de; font-weight: 800; }
+    .choice-detail { display: block; margin-top: 7px; color: #96a7c0; font-size: 12px; line-height: 1.55; }
+    .helper { color: #8190a9; font-size: 12px; line-height: 1.6; margin-top: 14px; }
+    .stack-list { display: grid; gap: 8px; max-width: 700px; }
+    .stack-row { width: 100%; display: grid; grid-template-columns: minmax(125px, 1fr) minmax(150px, 1fr) auto; align-items: center; gap: 12px; text-align: left; border: 1px solid #344158; border-radius: 8px; padding: 12px 14px; background: #131e2f; color: #e4eaf3; }
+    .stack-row:hover, .stack-row.selected { border-color: #dd85ce; background: #241d35; }
+    .stack-key { color: #ef9ed6; }
+    .stack-value { color: #98edbf; font-weight: 800; }
+    .stack-value.missing { color: #e3b777; }
+    .stack-arrow { color: #8592ab; }
+    .fixed-list { max-width: 700px; display: flex; flex-wrap: wrap; gap: 7px; margin: 16px 0 0; }
+    .fixed-list span { padding: 5px 9px; border: 1px solid #33415a; border-radius: 6px; color: #93a2b9; font-size: 11px; }
+    .choices-panel { margin-top: 18px; padding: 17px; max-width: 700px; border: 1px solid #55748a; background: #101e2e; border-radius: 10px; }
+    .choices-panel .field-label { margin: 0 0 10px; }
+    .option-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .option-chips button { border: 1px solid #50617d; border-radius: 7px; padding: 9px 13px; background: #1b2a3c; color: #e5ebf5; }
+    .option-chips button.active { border-color: #90edbd; color: #9cf1c3; background: #17372f; }
+    .review { display: grid; gap: 10px; max-width: 700px; margin: 15px 0 0; }
+    .review-row { display: flex; justify-content: space-between; gap: 20px; padding: 10px 0; border-bottom: 1px solid #2a3850; font-size: 13px; }
+    .review-row span:first-child { color: #a6b2c8; }
+    .review-row span:last-child { color: #a1edc5; text-align: right; }
+    .review-row .missing { color: #e3b777 !important; }
+    .actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 30px; }
+    .primary, .secondary { border-radius: 8px; padding: 11px 17px; font-weight: 800; }
+    .primary { border: 1px solid #8ee5b8; background: #8ee5b8; color: #10251b; }
+    .secondary { border: 1px solid #42536f; color: #d5deeb; background: transparent; }
+    .status { min-height: 20px; color: #e3b777; font-size: 12px; margin: 14px 0 0; }
+    .success { color: #94edbf; }
+    .footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; color: #64748f; font-size: 11px; margin-top: 20px; }
+    @media (max-width: 850px) { .workspace { grid-template-columns: 1fr; } .aside { order: 2; } .terminal { order: 1; } .terminalbody { min-height: auto; } }
+    @media (max-width: 500px) { .stack-row { grid-template-columns: 1fr auto; } .stack-value { grid-column: 1; } .stack-arrow { grid-column: 2; grid-row: 1 / span 2; } .review-row { font-size: 12px; } }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="topline"><span class="brand">PLUGINCORE / UX LAB</span><span class="badge">DEMO MOCK · không tạo project</span></div>
+    <h1>Một luồng tạo project, chỉnh được ngay từ preset.</h1>
+    <p class="lead">Bản mô phỏng tập trung vào Monorepo. Preset chỉ điền sẵn cấu hình; bạn sửa Frontend, Backend, ORM hoặc Authentication ngay ở bước kế tiếp, rồi xem một bản tổng kết trước khi cài.</p>
+    <div class="workspace">
+      <aside class="aside">
+        <div class="eyebrow">Đề xuất UX</div>
+        <h2>Preset là điểm bắt đầu</h2>
+        <p>Không còn hai nhánh Recommended và Custom tách rời. Người dùng chọn cấu hình khởi đầu, chỉnh đúng mục cần đổi, rồi xác nhận một lần.</p>
+        <ol class="steps" id="steps"></ol>
+        <p class="note">Thử dùng <strong>↑/↓</strong> và <strong>Enter</strong> trong mock, hoặc nhấp chuột. Các mục cố định được ghi rõ và không mở lựa chọn giả.</p>
+      </aside>
+      <main class="terminal" aria-label="Mô phỏng CLI">
+        <div class="terminalbar"><i class="dot"></i><i class="dot"></i><i class="dot"></i><span>repo create · UX preview</span></div>
+        <div class="terminalbody" id="screen"></div>
+      </main>
+    </div>
+    <div class="footer"><span>Mock thiết kế · dữ liệu không được lưu</span><span>PluginCore / 24.09.2026</span></div>
+  </div>
+  <script>
+    const optionSets = {
+      frontend: ["React", "Vue"],
+      backend: ["Express", "Fastify"],
+      orm: ["Prisma", "Drizzle"],
+      auth: ["Custom Authentication", "Clerk Authentication"]
+    };
+    const labels = { frontend: "Frontend", backend: "Backend", orm: "ORM", auth: "Authentication" };
+    const keys = Object.keys(optionSets);
+    const defaults = { frontend: "React", backend: "Express", orm: "Prisma", auth: "Custom Authentication" };
+    const previewStep = Number(new URLSearchParams(location.search).get("step")) - 1;
+    const state = { phase: Number.isInteger(previewStep) && previewStep >= 0 && previewStep <= 2 ? previewStep : 0, name: "my-platform", startingPoint: 0, values: { ...defaults }, activeRow: 0, openRow: -1, activeOption: 0, changed: false, message: "" };
+    const esc = (value) => String(value).replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
+    const screen = document.getElementById("screen");
+    const steps = document.getElementById("steps");
+
+    function chooseStart(index) {
+      state.startingPoint = index;
+      state.values = index === 0 ? { ...defaults } : { frontend: "", backend: "", orm: "", auth: "" };
+      state.changed = false;
+      state.message = "";
+      render();
+    }
+    function setPhase(phase) {
+      state.phase = phase;
+      state.openRow = -1;
+      state.message = "";
+      render();
+    }
+    function nextFromStart() {
+      if (!/^[a-z0-9][a-z0-9-]*$/i.test(state.name)) {
+        state.message = "Tên project chỉ được dùng chữ, số và dấu -.";
+        render();
+        document.getElementById("project-name")?.focus();
+        return;
+      }
+      setPhase(1);
+    }
+    function nextFromConfigure() {
+      const firstMissing = keys.findIndex((key) => !state.values[key]);
+      if (firstMissing !== -1) {
+        state.activeRow = firstMissing;
+        state.openRow = firstMissing;
+        state.activeOption = 0;
+        state.message = `Chọn ${labels[keys[firstMissing]]} trước khi xem lại.`;
+        render();
+        return;
+      }
+      setPhase(2);
+    }
+    function chooseValue(key, value) {
+      state.values[key] = value;
+      state.changed = state.startingPoint === 0 && keys.some((item) => state.values[item] !== defaults[item]);
+      state.openRow = -1;
+      state.message = "";
+      render();
+    }
+    function renderSteps() {
+      steps.innerHTML = ["Chọn điểm bắt đầu", "Chỉnh cấu hình", "Xem lại & cài"].map((label, index) =>
+        `<li class="${index === state.phase ? "active" : index < state.phase ? "done" : ""}"><span class="step-number">${index < state.phase ? "✓" : index + 1}</span><span>${label}</span></li>`
+      ).join("");
+    }
+    function renderStart() {
+      return `<p class="command">$ repo create</p>
+        <h2 class="prompt-title">1 / Chọn điểm bắt đầu</h2>
+        <label class="field-label" for="project-name">? Repository name</label>
+        <input class="field-input" id="project-name" value="${esc(state.name)}" autocomplete="off" spellcheck="false">
+        <span class="field-label">? Project type</span><div class="readonly">Monorepo <span aria-hidden="true">✓</span></div>
+        <span class="field-label">? Start from</span>
+        <div class="choice-list" id="starting-points">
+          <button class="choice ${state.startingPoint === 0 ? "selected" : ""}" data-start="0"><span class="pointer">${state.startingPoint === 0 ? "❯" : ""}</span><span><span class="choice-name">Recommended Monorepo</span><span class="choice-detail">React · Express · Prisma · Custom Authentication. Các giá trị này có thể đổi ở bước tiếp theo.</span></span></button>
+          <button class="choice ${state.startingPoint === 1 ? "selected" : ""}" data-start="1"><span class="pointer">${state.startingPoint === 1 ? "❯" : ""}</span><span><span class="choice-name">Tự cấu hình</span><span class="choice-detail">Bắt đầu với các mục chưa chọn; cùng một màn chỉnh cấu hình như preset.</span></span></button>
+        </div>
+        <p class="helper">↑/↓ chọn điểm bắt đầu · Enter tiếp tục. Không tạo file ở bước này.</p>
+        <div class="actions"><button class="primary" id="next-start">Tiếp tục →</button></div>
+        <p class="status" role="status">${esc(state.message)}</p>`;
+    }
+    function renderConfigure() {
+      const rows = keys.map((key, index) => `<button class="stack-row ${state.activeRow === index ? "selected" : ""}" data-row="${index}"><span class="stack-key">${labels[key]}</span><span class="stack-value ${state.values[key] ? "" : "missing"}">${esc(state.values[key] || "Chưa chọn")}</span><span class="stack-arrow">↵</span></button>`).join("");
+      const key = keys[state.openRow];
+      const choices = key === undefined ? "" : `<div class="choices-panel"><p class="field-label">? ${labels[key]}</p><div class="option-chips">${optionSets[key].map((value, index) => `<button data-choice="${index}" class="${state.activeOption === index ? "active" : ""}" aria-selected="${state.activeOption === index}">${esc(value)}</button>`).join("")}</div><p class="helper">↑/↓ chọn giá trị · Enter xác nhận · Esc đóng</p></div>`;
+      return `<p class="command">$ repo create ${esc(state.name)} --type monorepo</p>
+        <h2 class="prompt-title">2 / Chỉnh cấu hình</h2>
+        <p class="helper">${state.startingPoint === 0 ? "Đã điền từ Recommended Monorepo. Chọn bất kỳ dòng nào để đổi trực tiếp." : "Điền từng mục bạn cần. Bạn có thể quay lại chọn preset bất cứ lúc nào."}</p>
+        <div class="stack-list">${rows}</div>${choices}
+        <div class="fixed-list" aria-label="Thành phần cố định"><span>Vite</span><span>TypeScript</span><span>pnpm workspace</span><span>PostgreSQL</span><span>Vitest</span></div>
+        <p class="helper">Các thành phần trong khung nhỏ là cố định ở phiên bản generator hiện tại.</p>
+        <div class="actions"><button class="secondary" id="back-configure">← Quay lại</button><button class="primary" id="next-configure">Xem lại →</button></div>
+        <p class="status" role="status">${esc(state.message)}</p>`;
+    }
+    function renderReview() {
+      const origin = state.startingPoint === 0 ? (state.changed ? "Recommended Monorepo · đã chỉnh" : "Recommended Monorepo") : "Tự cấu hình";
+      const items = [["Project", state.name], ["Type", "Monorepo"], ["Starting point", origin], ...keys.map((key) => [labels[key], state.values[key]]), ["Fixed stack", "Vite · TypeScript · pnpm · PostgreSQL · Vitest"]];
+      return `<p class="command">$ repo create ${esc(state.name)} --type monorepo</p>
+        <h2 class="prompt-title">3 / Xem lại trước khi cài</h2>
+        <div class="review">${items.map(([key, value]) => `<div class="review-row"><span>${esc(key)}</span><span>${esc(value)}</span></div>`).join("")}</div>
+        <p class="helper">Chỉ có một bước xác nhận. Bản mock không gọi generator hoặc ghi file.</p>
+        <div class="actions"><button class="secondary" id="back-review">← Chỉnh tiếp</button><button class="primary" id="install">Install</button></div>
+        <p class="status ${state.message.startsWith("Đã") ? "success" : ""}" role="status">${esc(state.message)}</p>`;
+    }
+    function render() {
+      renderSteps();
+      screen.innerHTML = [renderStart, renderConfigure, renderReview][state.phase]();
+      if (state.phase === 0) {
+        document.getElementById("project-name").addEventListener("input", (event) => { state.name = event.target.value; });
+        document.querySelectorAll("[data-start]").forEach((button) => button.addEventListener("click", () => chooseStart(Number(button.dataset.start))));
+        document.getElementById("next-start").addEventListener("click", nextFromStart);
+      }
+      if (state.phase === 1) {
+        document.querySelectorAll("[data-row]").forEach((button) => button.addEventListener("click", () => {
+          state.activeRow = Number(button.dataset.row);
+          state.openRow = state.activeRow;
+          state.activeOption = Math.max(0, optionSets[keys[state.openRow]].indexOf(state.values[keys[state.openRow]]));
+          render();
+        }));
+        document.querySelectorAll("[data-choice]").forEach((button) => button.addEventListener("click", () => chooseValue(keys[state.openRow], optionSets[keys[state.openRow]][Number(button.dataset.choice)])));
+        document.getElementById("back-configure").addEventListener("click", () => setPhase(0));
+        document.getElementById("next-configure").addEventListener("click", nextFromConfigure);
+      }
+      if (state.phase === 2) {
+        document.getElementById("back-review").addEventListener("click", () => setPhase(1));
+        document.getElementById("install").addEventListener("click", () => {
+          state.message = "Đã mô phỏng Install. Không có project nào được tạo.";
+          render();
+        });
+      }
+    }
+    document.addEventListener("keydown", (event) => {
+      if (event.target instanceof HTMLInputElement) {
+        if (event.key === "Enter") { event.preventDefault(); nextFromStart(); }
+        return;
+      }
+      if (state.phase === 0) {
+        if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+          event.preventDefault();
+          chooseStart(state.startingPoint === 0 ? 1 : 0);
+        } else if (event.key === "Enter") { event.preventDefault(); nextFromStart(); }
+      } else if (state.phase === 1) {
+        if (event.key === "Escape" && state.openRow !== -1) { event.preventDefault(); state.openRow = -1; render(); return; }
+        if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+          event.preventDefault();
+          const delta = event.key === "ArrowDown" ? 1 : -1;
+          if (state.openRow === -1) state.activeRow = (state.activeRow + delta + keys.length) % keys.length;
+          else state.activeOption = (state.activeOption + delta + optionSets[keys[state.openRow]].length) % optionSets[keys[state.openRow]].length;
+          render();
+        } else if (event.key === "Enter") {
+          event.preventDefault();
+          if (state.openRow === -1) { state.openRow = state.activeRow; state.activeOption = Math.max(0, optionSets[keys[state.openRow]].indexOf(state.values[keys[state.openRow]])); render(); }
+          else chooseValue(keys[state.openRow], optionSets[keys[state.openRow]][state.activeOption]);
+        }
+      } else if (state.phase === 2 && event.key === "Enter" && !(event.target instanceof HTMLButtonElement)) {
+        event.preventDefault();
+        document.getElementById("install").click();
+      }
+    });
+    render();
+  </script>
+</body>
+</html>

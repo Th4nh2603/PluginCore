@@ -3,6 +3,8 @@ import path from "node:path";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 
+import select from "@inquirer/select";
+
 import { applyCreatePlan, planCreate } from "../application/create-service.js";
 import { runDoctor } from "../application/doctor-service.js";
 import type { GeneratorRunner } from "../application/generator-runner.js";
@@ -12,9 +14,11 @@ import type { ExtensionManifest } from "../core/registry/manifest.js";
 import { hasImplementedGenerator } from "../execution/generation-contract.js";
 import { parseArguments } from "./arguments.js";
 import { selectCustomStack } from "./custom-setup.js";
+import { runMonorepoEditor } from "./monorepo-wizard.js";
 import {
   conciseProjectTypeName,
   formatCreateSuccess,
+  formatMonorepoReview,
   formatPresetPreview,
   formatPrompt,
   formatSelectOption,
@@ -43,17 +47,27 @@ const defaultRegistryRoot = (): string => {
   return existsSync(sourceRegistry) ? sourceRegistry : path.resolve(directory, "../../../registry");
 };
 
-const terminalPrompt = (color: boolean): CliPrompt & { close(): void } => {
-  const terminal = createInterface({ input: process.stdin, output: process.stdout });
+const terminalPrompt = (color: boolean): CliPrompt => {
+  const question = async (message: string): Promise<string> => {
+    const terminal = createInterface({ input: process.stdin, output: process.stdout });
+    try { return await terminal.question(message); }
+    finally { terminal.close(); }
+  };
   return {
-    close: () => terminal.close(),
-    input: (message) => terminal.question(`${formatPrompt(message, color)}: `),
+    input: (message) => question(`${formatPrompt(message, color)}: `),
     select: async (message, choices) => {
-      process.stdout.write(`${formatPrompt(message, color)}\n${choices.map((choice, index) => formatSelectOption(index + 1, choice, color)).join("\n")}\n`);
-      const answer = await terminal.question(`${formatPrompt("Choose a number", color)}: `);
-      return choices[Number(answer) - 1]?.value ?? "";
+      const promptChoices = choices.map((choice, index) => {
+        const [name, ...description] = formatSelectOption(index + 1, choice, color).split("\n");
+        return {
+          name: name ?? choice.name,
+          value: choice.value,
+          short: choice.name.split(" — ")[0]?.replace(/^★\s*/u, "") ?? choice.name,
+          ...(description.length === 0 ? {} : { description: description.join("\n") })
+        };
+      });
+      return select({ message, choices: promptChoices });
     },
-    confirm: async (message) => /^(y|yes)$/i.test(await terminal.question(`${formatPrompt(message, color)} [y/N]: `))
+    confirm: async (message) => /^(y|yes)$/i.test(await question(`${formatPrompt(message, color)} [y/N]: `))
   };
 };
 
@@ -171,6 +185,69 @@ const runCommand = async (argv: readonly string[], io: CliIo): Promise<number> =
       return 2;
     }
 
+    if (interactive !== undefined && projectType === "monorepo") {
+      const target = typeof targetDirectory === "string" ? targetDirectory : path.resolve(process.cwd(), name);
+      let selection = await runMonorepoEditor(registry, interactive, {
+        ...(preset === undefined ? {} : { preset }),
+        ...(authentication === undefined ? {} : { authentication })
+      });
+      if (selection === undefined) {
+        io.write(formatWarning("Choose valid Monorepo stack options before continuing.", color));
+        return 2;
+      }
+
+      for (;;) {
+        const plan = await planCreate({
+          name,
+          projectType,
+          targetDirectory: target,
+          registryRoot,
+          ...(selection.preset === undefined ? {} : { preset: selection.preset }),
+          authentication: selection.authentication,
+          stack: selection.stack,
+          capabilities: [],
+          agentMode: "automatic"
+        });
+        const stack = plan.config.composition.stack;
+        const label = (reference: string | undefined): string => reference === undefined ? "Not selected" :
+          registry.get("stack-component", referenceId(reference))?.displayName ?? reference;
+        io.write(formatMonorepoReview({
+          name,
+          targetDirectory: plan.targetDirectory,
+          startingPoint: selection.startingPoint,
+          changed: selection.changed,
+          frontend: label(stack["frontend-library"]),
+          backend: label(stack["backend-framework"]),
+          orm: label(stack.orm),
+          authentication: registry.get("capability", `auth-${selection.authentication}`)?.displayName ?? selection.authentication
+        }, color));
+        const action = await interactive.select("Review", [
+          { name: "Install", value: "install", tone: "success" },
+          { name: "Edit stack", value: "edit", tone: "custom" },
+          { name: "Cancel", value: "cancel" }
+        ]);
+        if (action === "edit") {
+          selection = await runMonorepoEditor(registry, interactive, {
+            ...(preset === undefined ? {} : { preset }),
+            ...(authentication === undefined ? {} : { authentication }),
+            previous: selection
+          });
+          if (selection === undefined) {
+            io.write(formatWarning("Choose valid Monorepo stack options before continuing.", color));
+            return 2;
+          }
+          continue;
+        }
+        if (action !== "install") {
+          io.write(formatWarning("Creation cancelled. No files were written.", color));
+          return 2;
+        }
+        await applyCreatePlan(plan, io.generatorRunner);
+        io.write(formatCreateSuccess({ targetDirectory: plan.targetDirectory, projectType }, color));
+        return 0;
+      }
+    }
+
     if (configuredPreset === undefined && interactive !== undefined) {
       const setupChoices: SelectOption[] = [
         ...(recommendedPreset === undefined ? [] : [{ name: "★ Recommended", value: "recommended", tone: "recommended" as const }]),
@@ -182,11 +259,23 @@ const runCommand = async (argv: readonly string[], io: CliIo): Promise<number> =
         return 2;
       }
       if (setup === "recommended") {
-        const presetChoices: SelectOption[] = compatiblePresets.map((item) => ({
-          name: item.displayName,
-          value: item.id,
-          tone: "recommended"
-        }));
+        const presetChoices: SelectOption[] = compatiblePresets.map((item) => {
+          const authenticationId = authentication === undefined
+            ? preferredAuthenticationCapability(item)
+            : `auth-${authentication}`;
+          const authenticationManifest = authenticationId === undefined
+            ? undefined
+            : registry.get("capability", authenticationId);
+          return {
+            name: item.displayName,
+            value: item.id,
+            tone: "recommended",
+            stack: resolveStackPreview(registry, item),
+            extraRows: authenticationManifest === undefined
+              ? []
+              : [{ label: "Authentication", value: authenticationManifest.displayName }]
+          };
+        });
         const selectedPreset = await interactive.select("Recommended preset", presetChoices);
         if (!presetChoices.some((choice) => choice.value === selectedPreset)) {
           io.write(formatWarning("Choose a valid recommended preset.", color));
@@ -298,6 +387,5 @@ export const runCli = async (argv: readonly string[], io: CliIo): Promise<number
   const prompt = argv[0] === "create" && io.prompt === undefined && process.stdin.isTTY
     ? terminalPrompt(color)
     : undefined;
-  try { return await runCommand(argv, { ...io, color, ...(prompt === undefined ? {} : { prompt }) }); }
-  finally { prompt?.close(); }
+  return runCommand(argv, { ...io, color, ...(prompt === undefined ? {} : { prompt }) });
 };

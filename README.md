@@ -39,11 +39,11 @@ Chuyển đến thư mục cha muốn chứa project mới rồi chạy:
 repo create
 ```
 
-Wizard hỏi tên repository, loại project và cách thiết lập. Nhập số tương ứng rồi nhấn Enter:
+Wizard hỏi tên repository, loại project và cách thiết lập. Dùng phím ↑/↓ để di chuyển, rồi nhấn Enter để chọn:
 
 1. Chọn loại project được generator hỗ trợ: `web`, `api`, `monorepo` hoặc `empty`.
-2. Chọn **Recommended** để xem preset, rồi **Install** để tạo; hoặc chọn **Custom**.
-3. Với **Custom**, chọn từng thành phần phù hợp với loại project:
+2. Với Monorepo, chọn **Recommended Monorepo** hoặc **Custom** làm điểm bắt đầu. Preset điền sẵn React, Express, Prisma và Custom Authentication; bạn có thể đổi từng mục ngay tại menu **Configure stack**. Sau đó chọn **Review** → **Install**, **Edit stack** hoặc **Cancel**. Tham số `--preset recommended-monorepo-clerk` vẫn điền sẵn Clerk.
+3. Với Web/API/Empty, chọn **Recommended** hoặc **Custom** theo luồng hiện tại. Các nhóm có thể chọn gồm:
 
 | Nhóm | Lựa chọn | Loại project |
 | --- | --- | --- |
@@ -52,7 +52,7 @@ Wizard hỏi tên repository, loại project và cách thiết lập. Nhập s�
 | ORM | Prisma / Drizzle (PostgreSQL) | API, Monorepo |
 | Authentication | Custom / Clerk | Monorepo |
 
-CLI hiển thị bảng tóm tắt cấu hình trước khi tạo. Chọn **Install** để bắt đầu hoặc **Cancel** để hủy. Các lựa chọn được lưu vào `repo.config.yaml` và dùng để sinh source, dependencies và schema tương ứng.
+CLI hiển thị bảng tóm tắt cấu hình trước khi tạo. Với Monorepo, có thể quay lại chỉnh một mục mà vẫn giữ preset đã chọn. Các lựa chọn được lưu vào `repo.config.yaml` và dùng để sinh source, dependencies và schema tương ứng.
 
 Custom monorepo có `apps/web`, `apps/api`, `packages/shared`. Với Custom authentication, web có form đăng ký/đăng nhập; với Clerk, điền API keys theo README của project. ORM vẫn được tạo khi dùng Clerk để quản lý dữ liệu ứng dụng.
 
@@ -66,6 +66,7 @@ Có thể truyền trước tên, loại project và preset:
 repo create my-web --type web --preset recommended-web
 repo create my-api --type api --preset recommended-api
 repo create my-platform --type monorepo --preset recommended-monorepo
+repo create my-platform-clerk --type monorepo --preset recommended-monorepo-clerk
 ```
 
 Sau khi tạo, đọc README của project và hướng dẫn CLI in ra. Custom Web/API/Monorepo và Recommended API tự cài dependencies. Với Recommended Web, chạy `pnpm install` trong project trước khi chạy `pnpm dev`. Monorepo có bước cài dependencies tự động. Với API/Monorepo, khởi động PostgreSQL, kiểm tra `.env` và chạy `db:push` theo README của project trước khi sử dụng database. CLI không tự thay đổi schema trong database.
@@ -145,6 +146,7 @@ CLI hiện có `create`, `info`, `doctor` và trợ giúp. Các tính năng tron
 
 ## Tài liệu thiết kế
 
+- [Các bước và lựa chọn hiện tại của `repo create`](docs/cli-create-wizard.md)
 - [Architecture specification](docs/superpowers/specs/2026-09-10-repository-standard-plugin-design.md)
 - [CLI and create flow](docs/superpowers/plans/2026-09-11-cli-and-create-flow.md)
 - [Extension-driven create pipeline](docs/superpowers/specs/2026-09-17-extension-driven-create-pipeline-design.md)

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatCreateSuccess, formatPresetPreview, formatSelectOption } from "../../src/cli/presentation.js";
+import { formatCreateSuccess, formatMonorepoReview, formatPresetPreview, formatSelectOption } from "../../src/cli/presentation.js";
 
 describe("formatPresetPreview", () => {
   const preset = {
@@ -17,14 +17,14 @@ describe("formatPresetPreview", () => {
     }
   };
 
-  it("groups the recommended stack into human-friendly preview rows", () => {
+  it("shows each recommended stack component on its own labeled line", () => {
     const preview = formatPresetPreview(preset, false);
 
     expect(preview).toContain("Recommended Monorepo");
     expect(preview).toContain("Workspace: pnpm-workspaces@10");
-    expect(preview).toContain("Frontend: vite@8 + react@19");
-    expect(preview).toContain("Backend: express@5");
-    expect(preview).toContain("Language: typescript@5");
+    expect(preview).toMatch(/Frontend Framework: vite@8\nFrontend Library: react@19/u);
+    expect(preview).toContain("Backend Framework: express@5");
+    expect(preview).toContain("Shared Language: typescript@5");
     expect(preview).toContain("Testing: vitest@4");
   });
 
@@ -38,6 +38,35 @@ describe("formatPresetPreview", () => {
 });
 
 describe("formatSelectOption", () => {
+  it("lists every stack component under a recommended preset option", () => {
+    const option = formatSelectOption(1, {
+      name: "Recommended Monorepo Stack — Vite + React",
+      value: "recommended-monorepo",
+      tone: "recommended",
+      stack: {
+        "frontend-framework": "Vite",
+        "frontend-library": "React"
+      },
+      extraRows: [{ label: "Authentication", value: "Custom Authentication" }]
+    }, false);
+
+    expect(option).toBe("1. ★ Recommended Monorepo\n  Frontend Framework: Vite\n  Frontend Library: React\n  Authentication: Custom Authentication");
+  });
+
+  it("colors recommended preset and stack names pink and stack values green", () => {
+    const option = formatSelectOption(1, {
+      name: "Recommended Monorepo Stack",
+      value: "recommended-monorepo",
+      tone: "recommended",
+      stack: { "frontend-framework": "Vite", "frontend-library": "React" }
+    }, true);
+
+    expect(option).toContain("\u001B[95mRecommended Monorepo\u001B[0m");
+    expect(option).toContain("\u001B[95mFrontend Framework\u001B[0m");
+    expect(option).toContain("\u001B[92mVite\u001B[0m");
+    expect(option).toContain("\u001B[92mReact\u001B[0m");
+  });
+
   it("uses semantic choice colors instead of project-specific accents", () => {
     const web = formatSelectOption(1, { name: "Web", value: "web" }, true);
     const api = formatSelectOption(2, { name: "API", value: "api" }, true);
@@ -50,7 +79,7 @@ describe("formatSelectOption", () => {
     expect(api).not.toContain("\u001B[32m");
     expect(monorepo).not.toContain("\u001B[38;5;208m");
 
-    expect(formatSelectOption(4, { name: "Recommended", value: "recommended", tone: "recommended" }, true)).toContain("\u001B[92m");
+    expect(formatSelectOption(4, { name: "Recommended", value: "recommended", tone: "recommended" }, true)).toContain("\u001B[95m");
     expect(formatSelectOption(5, { name: "Custom", value: "custom", tone: "custom" }, true)).toContain("\u001B[95m");
   });
 });
@@ -66,5 +95,20 @@ describe("formatCreateSuccess", () => {
 
   it("uses success color when terminal color is enabled", () => {
     expect(formatCreateSuccess({ targetDirectory: "D:/work/demo", projectType: "web" }, true)).toContain("\u001B[92m");
+  });
+});
+
+describe("formatMonorepoReview", () => {
+  it("shows the edited preset and every choice before Install", () => {
+    const review = formatMonorepoReview({
+      name: "platform", targetDirectory: "/tmp/platform", startingPoint: "Recommended Monorepo", changed: true,
+      frontend: "Vue", backend: "Express", orm: "Prisma", authentication: "Clerk Authentication"
+    }, false);
+
+    expect(review).toContain("Starting point: Recommended Monorepo · edited");
+    expect(review).toContain("Frontend: Vue");
+    expect(review).toContain("Authentication: Clerk Authentication");
+    expect(review).toContain("Fixed stack: Vite · TypeScript · pnpm workspace · PostgreSQL · Vitest");
+    expect(review).toContain("Target: /tmp/platform");
   });
 });
