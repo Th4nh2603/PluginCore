@@ -74,7 +74,9 @@ export const runMonorepoEditor = async (
   }
 
   const options = Object.fromEntries(categories.map((category) => [category.key, orderedComponents(registry, category.key, category.preferred)])) as Record<CategoryKey, readonly ExtensionManifest[]>;
-  const authOptions = registry.list("capability").filter((item) => item.id.startsWith("auth-") && compatible(item));
+  const authOptions = registry.list("capability")
+    .filter((item) => item.id.startsWith("auth-") && compatible(item))
+    .sort((left, right) => Number(right.id === "auth-custom") - Number(left.id === "auth-custom") || left.id.localeCompare(right.id));
   if (categories.some((category) => options[category.key].length === 0) || (input.authentication === undefined && authOptions.length === 0)) return undefined;
   if (input.authentication !== undefined && !authOptions.some((item) => item.id === `auth-${input.authentication}`)) return undefined;
 
@@ -104,13 +106,18 @@ export const runMonorepoEditor = async (
         name: `${category.label}: ${displayValue(registry, category.key, values[category.key])}`,
         value: `edit:${category.key}`
       })),
-      { name: `Authentication: ${displayValue(registry, "auth", values.auth)}`, value: "edit:auth" },
+      ...(input.authentication === undefined
+        ? [{ name: `Authentication: ${displayValue(registry, "auth", values.auth)}`, value: "edit:auth" }]
+        : []),
       { name: "Continue — fixed: Vite · TypeScript · pnpm workspace · PostgreSQL · Vitest", value: "continue", tone: "success" }
     ];
-    const action = await prompt.select("Configure stack", rows);
+    let action = await prompt.select("Configure stack", rows);
     if (!rows.some((row) => row.value === action)) return undefined;
     if (action === "continue") {
-      if (Object.values(values).some((value) => value === "")) return undefined;
+      const missing = ([...categories.map((category) => category.key), "auth"] as const).find((key) => values[key] === "");
+      if (missing !== undefined) action = `edit:${missing}`;
+    }
+    if (action === "continue") {
       const stack: Record<string, string> = {};
       for (const category of categories) {
         const chosen = values[category.key];

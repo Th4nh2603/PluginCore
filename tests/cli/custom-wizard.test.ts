@@ -12,7 +12,7 @@ describe("Custom stack wizard", () => {
     const target = path.join(root, "demo");
     const output: string[] = [];
     const prompts: string[] = [];
-    let approvals = 0;
+    let configureCount = 0;
     try {
       const code = await runCli(["create", "demo", "--type", "monorepo", "--target", target], {
         write: (line) => output.push(line),
@@ -22,8 +22,13 @@ describe("Custom stack wizard", () => {
           confirm: async () => { throw new Error("Use the installation menu"); },
           select: async (message, choices) => {
             prompts.push(message);
-            if (message === "Setup") return fromRecommended ? "recommended" : "custom";
-            if (message === "Recommended preset") return "recommended-monorepo";
+            if (message === "Start from") return fromRecommended ? "recommended" : "custom";
+            if (message === "Configure stack") {
+              const actions = fromRecommended
+                ? ["edit:frontend", "edit:backend", "edit:orm", "continue"]
+                : ["edit:frontend", "edit:backend", "edit:orm", "edit:auth", "continue"];
+              return actions[configureCount++] ?? "invalid";
+            }
             if (message === "Frontend") {
               expect(choices.map((choice) => choice.value)).toEqual(["react", "vue"]);
               return "vue";
@@ -31,8 +36,7 @@ describe("Custom stack wizard", () => {
             if (message === "Backend") return "fastify";
             if (message === "ORM") return "drizzle";
             if (message === "Authentication") return "custom";
-            if (message === "Install stack") {
-              if (fromRecommended && approvals++ === 0) return "custom";
+            if (message === "Review") {
               expect(existsSync(target)).toBe(false);
               expect(output.join("\n")).toContain("Frontend: Vue");
               expect(output.join("\n")).toContain("Backend: Fastify");
@@ -44,23 +48,37 @@ describe("Custom stack wizard", () => {
         }
       });
       expect(code).toBe(0);
-      expect(prompts).toEqual(expect.arrayContaining(["Frontend", "Backend", "ORM", "Install stack"]));
+      expect(prompts).toEqual(expect.arrayContaining(["Frontend", "Backend", "ORM", "Review"]));
       const config = parse(await readFile(path.join(target, "repo.config.yaml"), "utf8"));
-      expect(config.composition.preset).toBeUndefined();
-      expect(config.composition.stack).toMatchObject({ frontend: "vue@3.0.0", backend: "fastify@5.0.0", orm: "drizzle@0.45.0" });
+      expect(config.composition.preset).toBe(fromRecommended ? "recommended-monorepo@1.0.0" : undefined);
+      expect(config.composition.stack).toMatchObject({ "frontend-library": "vue@3.0.0", "backend-framework": "fastify@5.0.0", orm: "drizzle@0.45.0" });
+      const webPackage = JSON.parse(await readFile(path.join(target, "apps/web/package.json"), "utf8"));
+      const apiPackage = JSON.parse(await readFile(path.join(target, "apps/api/package.json"), "utf8"));
+      const rootPackage = JSON.parse(await readFile(path.join(target, "package.json"), "utf8"));
+      expect(webPackage.dependencies.vue).toBeTruthy();
+      expect(apiPackage.dependencies.fastify).toBeTruthy();
+      expect(apiPackage.dependencies["drizzle-orm"]).toBeTruthy();
+      expect(rootPackage.devDependencies.vitest).toBeTruthy();
+      expect(rootPackage.scripts.test).toContain("vitest");
     } finally { await rm(root, { recursive: true, force: true }); }
   });
 
-  it.each(["Frontend", "Backend", "ORM", "Install stack"])("does not create files for invalid %s selection", async (invalidStep) => {
+  it.each(["Frontend", "Backend", "ORM", "Review"])("does not create files for invalid %s selection", async (invalidStep) => {
     const root = await mkdtemp(path.join(os.tmpdir(), "custom-invalid-"));
     const target = path.join(root, "demo");
+    let configureCount = 0;
     try {
       const code = await runCli(["create", "demo", "--type", "monorepo", "--target", target], {
         write: () => undefined,
         generatorRunner: { run: async () => { throw new Error("Must not generate"); } },
         prompt: {
           input: async () => "unused", confirm: async () => false,
-          select: async (message) => message === invalidStep ? "invalid" : ({ Setup: "custom", Frontend: "react", Backend: "express", ORM: "prisma", Authentication: "custom" }[message] ?? "install")
+          select: async (message) => {
+            if (message === "Start from") return "custom";
+            if (message === "Configure stack") return ["edit:frontend", "edit:backend", "edit:orm", "edit:auth", "continue"][configureCount++] ?? "invalid";
+            if (message === invalidStep) return "invalid";
+            return ({ Frontend: "react", Backend: "express", ORM: "prisma", Authentication: "custom", Review: "install" })[message] ?? "invalid";
+          }
         }
       });
       expect(code).toBe(2);

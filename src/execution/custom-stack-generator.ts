@@ -22,15 +22,24 @@ export const generateCustomStack = async (root: string, config: RepoConfig, runn
   const monorepo = config.project.type === "monorepo";
   const hasWeb = monorepo || config.project.type === "web";
   const hasApi = monorepo || config.project.type === "api";
-  const frontend = componentId(config.composition.stack.frontend, "react");
-  const backend = componentId(config.composition.stack.backend, "express");
+  const frontend = componentId(config.composition.stack.frontend ?? config.composition.stack["frontend-library"], "react");
+  const backend = componentId(config.composition.stack.backend ?? config.composition.stack["backend-framework"], "express");
   const orm = componentId(config.composition.stack.orm, "prisma");
   const authentication = monorepo ? config.composition.authentication ?? "custom" : undefined;
   const apiRoot = monorepo ? path.join(root, "apps/api") : root;
   const pnpm = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
   if (monorepo) {
     await writeFiles(root, {
-      "package.json": JSON.stringify({ name: config.project.name, private: true, scripts: { dev: "pnpm --parallel --filter ./apps/web --filter ./apps/api dev", build: "pnpm -r build" } }, null, 2),
+      "package.json": JSON.stringify({
+        name: config.project.name,
+        private: true,
+        scripts: {
+          dev: "pnpm --parallel --filter ./apps/web --filter ./apps/api dev",
+          build: "pnpm -r build",
+          test: "vitest run --passWithNoTests"
+        },
+        devDependencies: { vitest: "^4.1.11" }
+      }, null, 2),
       "pnpm-workspace.yaml": "packages:\n  - apps/*\n  - packages/*\n",
       "packages/shared/package.json": JSON.stringify({ name: `@${config.project.name}/shared`, private: true, type: "module", exports: "./dist/index.js", types: "./dist/index.d.ts", scripts: { build: "tsc" }, devDependencies: { typescript: "^5.9.3" } }, null, 2),
       "packages/shared/tsconfig.json": JSON.stringify({ compilerOptions: { target: "ES2022", module: "NodeNext", moduleResolution: "NodeNext", strict: true, declaration: true, rootDir: "src", outDir: "dist", skipLibCheck: true }, include: ["src"] }),

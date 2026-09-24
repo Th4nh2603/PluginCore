@@ -20,8 +20,8 @@ describe("selection / generator consistency", () => {
     { "backend-framework": "nestjs@11" },
     { packageManager: "npm@10" },
     { workspace: "npm-workspaces@10" },
-    { "frontend-library": "vue@3" },
-    { orm: "drizzle@0.45" },
+    { "frontend-library": "vue@99" },
+    { orm: "drizzle@99" },
     { database: "mysql@8" },
     { "frontend-framework": "vite@99" },
     { unrecognized: "anything@1" }
@@ -42,7 +42,7 @@ describe("selection / generator consistency", () => {
     { frontend: "vue@3.0.0", "frontend-library": "react@19" },
     { backend: "fastify@5.0.0", "backend-framework": "express@5" },
     { frontend: "react@999.0.0" },
-    { frontend: "react@19.0.0", testing: "vitest@4" }
+    { frontend: "react@19.0.0", testing: "vitest@99" }
   ])("does not allow Custom dispatch to bypass validation: %j", async (stack) => {
     const request = await input("monorepo", stack);
     await expect(planCreate(request)).rejects.toThrow(/unsupported|conflict/i);

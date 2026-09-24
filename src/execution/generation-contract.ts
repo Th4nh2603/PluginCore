@@ -37,7 +37,14 @@ const selectedReferences = (selection: string | undefined, fallback: string): re
 export const selectGenerationStrategy = (config: RepoConfig): GenerationStrategy => {
   const type = config.project.type;
   const stack = config.composition.stack;
-  const custom = stack.frontend !== undefined || stack.backend !== undefined;
+  const custom = stack.frontend !== undefined || stack.backend !== undefined || (
+    type === "monorepo" && (
+      config.composition.preset === undefined ||
+      (stack["frontend-library"] !== undefined && !references("react", "19").includes(stack["frontend-library"])) ||
+      (stack["backend-framework"] !== undefined && !references("express", "5").includes(stack["backend-framework"])) ||
+      (stack.orm !== undefined && !references("prisma", "6").includes(stack.orm))
+    )
+  );
   const authentication = config.composition.authentication;
   if (authentication !== undefined && (type !== "monorepo" || !["custom", "clerk"].includes(authentication))) {
     reject("authentication", authentication, type);
@@ -46,14 +53,14 @@ export const selectGenerationStrategy = (config: RepoConfig): GenerationStrategy
   if (custom && ["web", "api", "monorepo"].includes(type)) {
     const hasWeb = type !== "api";
     const hasApi = type !== "web";
-    const frontend = selectedReferences(stack.frontend, "react");
-    const backend = selectedReferences(stack.backend, "express");
+    const frontend = selectedReferences(stack.frontend ?? stack["frontend-library"], "react");
+    const backend = selectedReferences(stack.backend ?? stack["backend-framework"], "express");
     assertStack(config, {
       language: references("typescript", "5"), packageManager: references("pnpm", "10"),
       ...(hasWeb ? { frontend: frontendReferences, ui: frontend, "frontend-library": frontend, "frontend-framework": references("vite", "8") } : {}),
       framework: hasWeb ? references("vite", "8") : backend,
       ...(hasApi ? { backend: backendReferences, "backend-framework": backend, orm: ormReferences, database: references("postgresql", "16") } : {}),
-      ...(type === "monorepo" ? { workspace: references("pnpm-workspaces", "10"), "shared-language": references("typescript", "5") } : {})
+      ...(type === "monorepo" ? { workspace: references("pnpm-workspaces", "10"), "shared-language": references("typescript", "5"), testing: references("vitest", "4") } : {})
     });
     return "custom";
   }
