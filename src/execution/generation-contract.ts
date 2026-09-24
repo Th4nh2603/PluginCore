@@ -46,7 +46,7 @@ export const selectGenerationStrategy = (config: RepoConfig): GenerationStrategy
     )
   );
   const authentication = config.composition.authentication;
-  if (authentication !== undefined && (type !== "monorepo" || !["custom", "clerk"].includes(authentication))) {
+  if (authentication !== undefined && type !== "monorepo") {
     reject("authentication", authentication, type);
   }
 

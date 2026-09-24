@@ -52,7 +52,7 @@ export const resolveCreateComposition = (input: CreateResolutionInput): CreateRe
 
   const configuredCapabilities: (string | CapabilitySelection)[] = input.capabilities.length > 0
     ? [...input.capabilities]
-    : [...(preset?.selection?.capabilities ?? [])];
+    : [...(preset?.selection?.capabilities ?? projectType.selection?.capabilities ?? [])];
 
   const requestedCapabilities = input.authentication === undefined
     ? configuredCapabilities
@@ -61,15 +61,25 @@ export const resolveCreateComposition = (input: CreateResolutionInput): CreateRe
         `${authenticationCapabilityPrefix}${input.authentication}`
       ];
 
+  if (input.projectType === "monorepo" && !requestedCapabilities.some((selection) =>
+    selectionId(selection).startsWith(authenticationCapabilityPrefix)
+  )) {
+    throw new RepositoryStandardError("CONFIG_INVALID", "Monorepo requires an authentication capability.");
+  }
+
   const capabilityResolution = resolveCapabilities({
     registry: input.registry,
     projectType: input.projectType,
     requested: requestedCapabilities
   });
 
-  const authenticationCapability = capabilityResolution.capabilities.find((capability) =>
+  const authenticationCapabilities = capabilityResolution.capabilities.filter((capability) =>
     capability.id.startsWith(authenticationCapabilityPrefix)
   );
+  if (authenticationCapabilities.length > 1) {
+    throw new RepositoryStandardError("CONFIG_INVALID", "Select exactly one authentication capability for Monorepo.");
+  }
+  const authenticationCapability = authenticationCapabilities[0];
   const authentication = authenticationCapability?.id.slice(authenticationCapabilityPrefix.length);
 
   const candidate = {

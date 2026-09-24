@@ -12,6 +12,7 @@ interface ParsedRepoConfig {
   readonly composition: {
     readonly preset?: string;
     readonly authentication?: string;
+    readonly capabilities?: readonly { readonly id: string; readonly version: string }[];
   };
 }
 
@@ -245,6 +246,25 @@ describe("runCli", () => {
       });
       expect(exitCode).toBe(2);
       expect(output.join("\n")).toContain('Authentication capability "auth-firebase" is not available for monorepo.');
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("maps --auth clerk to the Clerk capability", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-clerk-option-"));
+    const targetDirectory = path.join(root, "platform");
+    try {
+      const exitCode = await runCli(["create", "platform", "--type", "monorepo", "--auth", "clerk", "--target", targetDirectory, "--yes"], {
+        write: () => undefined,
+        generatorRunner: { run: async () => undefined }
+      });
+
+      expect(exitCode).toBe(0);
+      const config = await readConfig(targetDirectory);
+      expect(config.composition.capabilities).toContainEqual({ id: "auth-clerk", version: "1.0.0" });
+      expect(existsSync(path.join(targetDirectory, "apps/api/src/auth/router.ts"))).toBe(false);
+      expect(await readFile(path.join(targetDirectory, "apps/web/src/App.tsx"), "utf8")).toContain("@clerk/react");
     } finally {
       await rm(root, { recursive: true, force: true });
     }
