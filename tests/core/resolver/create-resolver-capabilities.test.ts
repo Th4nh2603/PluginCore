@@ -30,6 +30,15 @@ const authClerk: ExtensionManifest = {
   compatibility: { projectTypes: ["monorepo"] }
 };
 
+const mcpServer: ExtensionManifest = {
+  schemaVersion: 1,
+  id: "mcp-server",
+  kind: "capability",
+  version: "1.0.0",
+  displayName: "Local MCP Server",
+  compatibility: { projectTypes: ["api", "monorepo"] }
+};
+
 const recommendedMonorepo: ExtensionManifest = {
   schemaVersion: 1,
   id: "recommended-monorepo",
@@ -95,5 +104,40 @@ describe("create resolver capability-backed authentication", () => {
     expect(resolution.config.composition.capabilities).toEqual([
       { id: "auth-clerk", version: "1.0.0" }
     ]);
+  });
+
+  it("keeps preset authentication when MCP is added", () => {
+    const registry = new Registry([projectType, recommendedMonorepo, authCustom, mcpServer]);
+    const resolution = resolveCreateComposition({
+      ...baseInput(registry), preset: "recommended-monorepo",
+      capabilities: [{ id: "mcp-server", version: "1.0.0" }]
+    });
+    expect(resolution.config.composition.capabilities?.map(({ id }) => id)).toEqual(["auth-custom", "mcp-server"]);
+  });
+
+  it("changes only authentication when MCP is selected", () => {
+    const registry = new Registry([projectType, recommendedMonorepo, authCustom, authClerk, mcpServer]);
+    const resolution = resolveCreateComposition({
+      ...baseInput(registry), preset: "recommended-monorepo", authentication: "clerk",
+      capabilities: [{ id: "mcp-server", version: "1.0.0" }]
+    });
+    expect(resolution.config.composition.capabilities?.map(({ id }) => id)).toEqual(["auth-clerk", "mcp-server"]);
+  });
+
+  it("deduplicates repeated explicit capabilities", () => {
+    const registry = new Registry([projectType, recommendedMonorepo, authCustom, mcpServer]);
+    const resolution = resolveCreateComposition({
+      ...baseInput(registry), preset: "recommended-monorepo",
+      capabilities: [{ id: "mcp-server", version: "1.0.0" }, { id: "mcp-server", version: "1.0.0" }]
+    });
+    expect(resolution.config.composition.capabilities?.map(({ id }) => id)).toEqual(["auth-custom", "mcp-server"]);
+  });
+
+  it("rejects an explicit capability version that differs from the registry", () => {
+    const registry = new Registry([projectType, recommendedMonorepo, authCustom, mcpServer]);
+    expect(() => resolveCreateComposition({
+      ...baseInput(registry), preset: "recommended-monorepo",
+      capabilities: [{ id: "mcp-server", version: "9.0.0" }]
+    })).toThrow(/version/i);
   });
 });

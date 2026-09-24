@@ -48,6 +48,11 @@ export const resolveCapabilities = (input: CapabilityResolutionInput): Capabilit
       throw new RepositoryStandardError("CONFIG_INVALID", `Capability "${id}" is not available.`);
     }
 
+    const requested = requestedById.get(id);
+    if (typeof requested === "object" && requested.version !== undefined && requested.version !== manifest.version) {
+      throw new RepositoryStandardError("CONFIG_INVALID", `Capability "${id}" version ${requested.version} is not available.`);
+    }
+
     const supportedProjectTypes = manifest.compatibility?.projectTypes;
     if (Array.isArray(supportedProjectTypes) && !supportedProjectTypes.includes(input.projectType)) {
       throw new RepositoryStandardError(
@@ -60,7 +65,6 @@ export const resolveCapabilities = (input: CapabilityResolutionInput): Capabilit
     for (const dependency of manifest.dependencies ?? []) resolveOne(dependency);
     resolving.delete(id);
 
-    const requested = requestedById.get(id);
     const configRef = typeof requested === "object" ? requested.configRef : undefined;
     capabilities.push({
       id: manifest.id,

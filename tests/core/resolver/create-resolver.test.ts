@@ -116,6 +116,13 @@ describe("resolveCreateComposition", () => {
     });
   });
 
+  it("requires Monorepo authentication to come from the registry", () => {
+    const registry = new Registry([projectType("monorepo")]);
+
+    expect(() => resolveCreateComposition(input(registry, { projectType: "monorepo" })))
+      .toThrow("Monorepo requires an authentication capability.");
+  });
+
   it("returns configuration accepted by the canonical repo config schema", () => {
     const registry = new Registry([
       projectType("web"),

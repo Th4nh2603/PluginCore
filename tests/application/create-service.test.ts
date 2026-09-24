@@ -20,6 +20,20 @@ afterEach(async () => {
 });
 
 describe("planCreate", () => {
+  it("rolls back the owned target if MCP dependency installation fails", async () => {
+    const root = await makeRoot();
+    const targetDirectory = path.join(root, "service");
+    const plan = await planCreate({
+      name: "service", projectType: "api", targetDirectory,
+      registryRoot: path.resolve("registry"), preset: "recommended-api", stack: {},
+      capabilities: [{ id: "mcp-server", version: "1.0.0" }], agentMode: "automatic"
+    });
+    await expect(applyCreatePlan(plan, { run: async (_command, args) => {
+      if (args[0] === "install") throw new Error("MCP install failed");
+    } })).rejects.toThrow("MCP install failed");
+    expect(existsSync(targetDirectory)).toBe(false);
+  });
+
   it("resolves a project type from the registry and returns a no-write plan", async () => {
     const root = await makeRoot();
     const registryRoot = path.join(root, "registry");

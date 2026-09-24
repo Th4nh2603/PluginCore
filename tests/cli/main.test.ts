@@ -12,6 +12,7 @@ interface ParsedRepoConfig {
   readonly composition: {
     readonly preset?: string;
     readonly authentication?: string;
+    readonly capabilities?: readonly { readonly id: string; readonly version: string }[];
   };
 }
 
@@ -28,6 +29,48 @@ const writeEmptyRegistry = async (registryRoot: string): Promise<void> => {
 };
 
 describe("runCli", () => {
+  it("adds MCP to an API selected interactively", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-mcp-api-"));
+    const targetDirectory = path.join(root, "service");
+    try {
+      const exitCode = await runCli(["create", "service", "--type", "api", "--preset", "recommended-api", "--target", targetDirectory], {
+        write: () => undefined,
+        prompt: {
+          input: async () => "unused",
+          select: async (message) => message === "Install stack" ? "install" : "invalid",
+          confirm: async (message) => message === "Include MCP server?"
+        },
+        generatorRunner: { run: async () => undefined }
+      });
+      expect(exitCode).toBe(0);
+      expect((await readConfig(targetDirectory)).composition.capabilities?.map(({ id }) => id)).toContain("mcp-server");
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+
+  it("accepts the scripted MCP capability", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-mcp-scripted-"));
+    const targetDirectory = path.join(root, "platform");
+    try {
+      const exitCode = await runCli(["create", "platform", "--type", "monorepo", "--preset", "recommended-monorepo", "--capability", "mcp-server", "--target", targetDirectory, "--yes"], {
+        write: () => undefined, generatorRunner: { run: async () => undefined }
+      });
+      expect(exitCode).toBe(0);
+      expect((await readConfig(targetDirectory)).composition.capabilities?.map(({ id }) => id)).toEqual(["auth-custom", "mcp-server"]);
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+
+  it("rejects MCP for Web without creating files", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-mcp-web-cli-"));
+    const targetDirectory = path.join(root, "web-demo");
+    try {
+      const exitCode = await runCli(["create", "web-demo", "--type", "web", "--preset", "recommended-web", "--capability", "mcp-server", "--target", targetDirectory, "--yes"], {
+        write: () => undefined, generatorRunner: { run: async () => undefined }
+      });
+      expect(exitCode).toBe(2);
+      expect(existsSync(targetDirectory)).toBe(false);
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+
   it("prints command help without reading the filesystem", async () => {
     const output: string[] = [];
     const exitCode = await runCli(["--help"], { write: (line) => output.push(line) });
@@ -245,6 +288,25 @@ describe("runCli", () => {
       });
       expect(exitCode).toBe(2);
       expect(output.join("\n")).toContain('Authentication capability "auth-firebase" is not available for monorepo.');
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("maps --auth clerk to the Clerk capability", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-clerk-option-"));
+    const targetDirectory = path.join(root, "platform");
+    try {
+      const exitCode = await runCli(["create", "platform", "--type", "monorepo", "--auth", "clerk", "--target", targetDirectory, "--yes"], {
+        write: () => undefined,
+        generatorRunner: { run: async () => undefined }
+      });
+
+      expect(exitCode).toBe(0);
+      const config = await readConfig(targetDirectory);
+      expect(config.composition.capabilities).toContainEqual({ id: "auth-clerk", version: "1.0.0" });
+      expect(existsSync(path.join(targetDirectory, "apps/api/src/auth/router.ts"))).toBe(false);
+      expect(await readFile(path.join(targetDirectory, "apps/web/src/App.tsx"), "utf8")).toContain("@clerk/react");
     } finally {
       await rm(root, { recursive: true, force: true });
     }

@@ -10,6 +10,33 @@ import { runCli } from "../../src/cli/main.js";
 import type { SelectOption } from "../../src/cli/presentation.js";
 
 describe("recommended create wizard", () => {
+  it("keeps authentication when MCP is enabled from the Monorepo editor", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-mcp-wizard-"));
+    const targetDirectory = path.join(root, "platform");
+    const output: string[] = [];
+    let configureCount = 0;
+    try {
+      const exitCode = await runCli(["create", "platform", "--type", "monorepo", "--target", targetDirectory], {
+        write: (line) => output.push(line),
+        prompt: {
+          input: async () => "unused", confirm: async () => false,
+          select: async (message) => {
+            if (message === "Start from") return "recommended";
+            if (message === "Configure stack") return configureCount++ === 0 ? "edit:mcp" : "continue";
+            if (message === "MCP") return "on";
+            if (message === "Review") return "install";
+            throw new Error(`Unexpected prompt: ${message}`);
+          }
+        },
+        generatorRunner: { run: async () => undefined }
+      });
+      expect(exitCode).toBe(0);
+      expect(output.join("\n")).toContain("MCP: On");
+      const config = parse(await readFile(path.join(targetDirectory, "repo.config.yaml"), "utf8"));
+      expect(config.composition.capabilities.map((item: { id: string }) => item.id)).toEqual(["auth-custom", "mcp-server"]);
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+
   it("edits a preset in place and installs only after Review", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-unified-"));
     const targetDirectory = path.join(root, "platform");

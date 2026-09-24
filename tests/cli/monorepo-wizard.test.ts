@@ -26,6 +26,22 @@ const scriptedPrompt = (answers: readonly string[], messages: string[]): CliProm
 };
 
 describe("Monorepo editor", () => {
+  it("keeps MCP enabled after returning from Review", async () => {
+    const registry = await loadTestRegistry();
+    const first = await runMonorepoEditor(registry, scriptedPrompt([
+      "recommended", "edit:mcp", "on", "continue"
+    ], []), {});
+    expect(first?.mcpEnabled).toBe(true);
+    if (first === undefined) throw new Error("Expected a completed first selection");
+    const second = await runMonorepoEditor(registry, scriptedPrompt(["continue"], []), { previous: first });
+    expect(second?.mcpEnabled).toBe(true);
+  });
+
+  it("leaves MCP off without an explicit choice", async () => {
+    const selection = await runMonorepoEditor(await loadTestRegistry(), scriptedPrompt(["recommended", "continue"], []), {});
+    expect(selection?.mcpEnabled).toBe(false);
+  });
+
   it("keeps the preset while changing only the chosen component", async () => {
     const messages: string[] = [];
     const result = await runMonorepoEditor(await loadTestRegistry(), scriptedPrompt([

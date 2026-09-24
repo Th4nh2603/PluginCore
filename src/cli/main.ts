@@ -153,6 +153,18 @@ const runCommand = async (argv: readonly string[], io: CliIo): Promise<number> =
 
     const configuredPreset = command.options.get("--preset");
     const configuredAuthentication = command.options.get("--auth");
+    const configuredCapability = command.options.get("--capability");
+    const mcpManifest = registry.get("capability", "mcp-server");
+    if (configuredCapability !== undefined && configuredCapability !== "mcp-server") {
+      io.write(`Capability "${String(configuredCapability)}" is not available.`);
+      return 2;
+    }
+    if (configuredCapability === "mcp-server" && (mcpManifest === undefined || !isCompatible(mcpManifest, projectType))) {
+      io.write(`MCP server capability is not available for ${projectType}.`);
+      return 2;
+    }
+    const mcpCapabilities = (enabled: boolean): readonly { readonly id: string; readonly version: string }[] =>
+      enabled && mcpManifest !== undefined ? [{ id: "mcp-server", version: mcpManifest.version }] : [];
     const compatiblePresets = registry.list("preset").filter((preset) => isCompatible(preset, projectType));
     const recommendedPreset = compatiblePresets[0];
     const authCapabilities = authenticationCapabilities(registry, projectType);
@@ -189,7 +201,8 @@ const runCommand = async (argv: readonly string[], io: CliIo): Promise<number> =
       const target = typeof targetDirectory === "string" ? targetDirectory : path.resolve(process.cwd(), name);
       let selection = await runMonorepoEditor(registry, interactive, {
         ...(preset === undefined ? {} : { preset }),
-        ...(authentication === undefined ? {} : { authentication })
+        ...(authentication === undefined ? {} : { authentication }),
+        ...(configuredCapability === "mcp-server" ? { mcpEnabled: true } : {})
       });
       if (selection === undefined) {
         io.write(formatWarning("Choose valid Monorepo stack options before continuing.", color));
@@ -205,7 +218,7 @@ const runCommand = async (argv: readonly string[], io: CliIo): Promise<number> =
           ...(selection.preset === undefined ? {} : { preset: selection.preset }),
           authentication: selection.authentication,
           stack: selection.stack,
-          capabilities: [],
+          capabilities: mcpCapabilities(selection.mcpEnabled),
           agentMode: "automatic"
         });
         const stack = plan.config.composition.stack;
@@ -219,7 +232,8 @@ const runCommand = async (argv: readonly string[], io: CliIo): Promise<number> =
           frontend: label(stack["frontend-library"]),
           backend: label(stack["backend-framework"]),
           orm: label(stack.orm),
-          authentication: registry.get("capability", `auth-${selection.authentication}`)?.displayName ?? selection.authentication
+          authentication: registry.get("capability", `auth-${selection.authentication}`)?.displayName ?? selection.authentication,
+          mcpEnabled: selection.mcpEnabled
         }, color));
         const action = await interactive.select("Review", [
           { name: "Install", value: "install", tone: "success" },
@@ -230,6 +244,7 @@ const runCommand = async (argv: readonly string[], io: CliIo): Promise<number> =
           selection = await runMonorepoEditor(registry, interactive, {
             ...(preset === undefined ? {} : { preset }),
             ...(authentication === undefined ? {} : { authentication }),
+            ...(configuredCapability === "mcp-server" ? { mcpEnabled: true } : {}),
             previous: selection
           });
           if (selection === undefined) {
@@ -289,6 +304,12 @@ const runCommand = async (argv: readonly string[], io: CliIo): Promise<number> =
       authentication = authChoices[0]?.value;
     }
 
+    const mcpEnabled = configuredCapability === "mcp-server" || (
+      interactive !== undefined && projectType === "api" && mcpManifest !== undefined && isCompatible(mcpManifest, projectType)
+        ? await interactive.confirm("Include MCP server?")
+        : false
+    );
+    const mcpPreviewRows = projectType === "api" ? [{ label: "MCP", value: mcpEnabled ? "On" : "Off" }] : [];
     const target = typeof targetDirectory === "string" ? targetDirectory : path.resolve(process.cwd(), name);
     const selectedPreset = preset === undefined ? undefined : registry.get("preset", preset);
     let plan = await planCreate({
@@ -299,7 +320,7 @@ const runCommand = async (argv: readonly string[], io: CliIo): Promise<number> =
       ...(preset === undefined ? {} : { preset }),
       ...(authentication === undefined ? {} : { authentication }),
       stack,
-      capabilities: [],
+      capabilities: mcpCapabilities(mcpEnabled),
       agentMode: "automatic"
     });
 
@@ -312,9 +333,10 @@ const runCommand = async (argv: readonly string[], io: CliIo): Promise<number> =
       io.write(formatPresetPreview({
         displayName: selectedPreset.displayName,
         selection: { stack: resolveStackPreview(registry, selectedPreset) },
-        extraRows: authenticationManifest === undefined
-          ? []
-          : [{ label: "Authentication", value: authenticationManifest.displayName }]
+        extraRows: [
+          ...(authenticationManifest === undefined ? [] : [{ label: "Authentication", value: authenticationManifest.displayName }]),
+          ...mcpPreviewRows
+        ]
       }, color));
       io.write(plan.preview);
 
@@ -334,7 +356,7 @@ const runCommand = async (argv: readonly string[], io: CliIo): Promise<number> =
             registryRoot,
             ...(authentication === undefined ? {} : { authentication }),
             stack,
-            capabilities: [],
+            capabilities: mcpCapabilities(mcpEnabled),
             agentMode: "automatic"
           });
         } else if (installation !== "install") {
@@ -351,7 +373,10 @@ const runCommand = async (argv: readonly string[], io: CliIo): Promise<number> =
           selection: { stack: Object.fromEntries(Object.entries(stack).map(([category, reference]) => [
             category, registry.get("stack-component", referenceId(reference))?.displayName ?? reference
           ])) },
-          extraRows: authentication === undefined ? [] : [{ label: "Authentication", value: authentication }]
+          extraRows: [
+            ...(authentication === undefined ? [] : [{ label: "Authentication", value: authentication }]),
+            ...mcpPreviewRows
+          ]
         }, color));
       }
       io.write(plan.preview);
