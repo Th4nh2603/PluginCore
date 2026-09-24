@@ -69,6 +69,79 @@ describe("Monorepo editor", () => {
     expect(messages).toEqual(["Start from", "Configure stack"]);
   });
 
+  it("prompts for the first missing field after Continue from Custom", async () => {
+    const messages: string[] = [];
+    let menuCount = 0;
+    const result = await runMonorepoEditor(await loadTestRegistry(), {
+      input: async () => "unused", confirm: async () => false,
+      select: async (message) => {
+        messages.push(message);
+        if (message === "Start from") return "custom";
+        if (message === "Configure stack") return ["continue", "edit:backend", "edit:orm", "edit:auth", "continue"][menuCount++] ?? "invalid";
+        return ({ Frontend: "react", Backend: "express", ORM: "prisma", Authentication: "custom" })[message] ?? "invalid";
+      }
+    }, {});
+
+    expect(result?.stack["frontend-library"]).toBe("react@19.0.0");
+    expect(messages.slice(0, 3)).toEqual(["Start from", "Configure stack", "Frontend"]);
+  });
+
+  it("does not offer an editable Authentication row when --auth is set", async () => {
+    const choices: string[] = [];
+    const labels: string[] = [];
+    const result = await runMonorepoEditor(await loadTestRegistry(), {
+      input: async () => "unused", confirm: async () => false,
+      select: async (message, options) => {
+        if (message === "Start from") return "recommended";
+        if (message === "Configure stack") {
+          choices.push(...options.map((option) => option.value));
+          labels.push(...options.map((option) => option.name));
+          return "continue";
+        }
+        throw new Error(`Unexpected prompt: ${message}`);
+      }
+    }, { authentication: "clerk" });
+    expect(result?.authentication).toBe("clerk");
+    expect(choices).not.toContain("edit:auth");
+    expect(labels.some((label) => label.includes("Authentication: Clerk Authentication (fixed)"))).toBe(true);
+  });
+
+  it("accepts registry entries without compatibility restrictions", async () => {
+    const registry = await loadTestRegistry();
+    const unrestricted = new Registry(ExtensionKinds.flatMap((kind) => registry.list(kind).map((item) => {
+      const entry = { ...item };
+      delete entry.compatibility;
+      return entry;
+    })));
+    const result = await runMonorepoEditor(unrestricted, scriptedPrompt(["recommended", "continue"], []), {});
+    expect(result?.preset).toBe("recommended-monorepo");
+  });
+
+  it("requires replacing a preset component missing from the registry", async () => {
+    const registry = await loadTestRegistry();
+    const withoutReact = new Registry(ExtensionKinds.flatMap((kind) => registry.list(kind).filter((item) => item.id !== "react")));
+    const messages: string[] = [];
+    const result = await runMonorepoEditor(withoutReact, scriptedPrompt(["recommended", "continue"], messages), {});
+    expect(result?.stack["frontend-library"]).toBe("vue@3.0.0");
+    expect(messages).toEqual(["Start from", "Configure stack"]);
+  });
+
+  it("does not mark the preset edited when the same component is selected again", async () => {
+    const result = await runMonorepoEditor(await loadTestRegistry(), scriptedPrompt([
+      "recommended", "edit:frontend", "react", "continue"
+    ], []), {});
+    expect(result?.stack).toEqual({});
+    expect(result?.changed).toBe(false);
+  });
+
+  it("clears the edited state after changing a component back to its preset value", async () => {
+    const result = await runMonorepoEditor(await loadTestRegistry(), scriptedPrompt([
+      "recommended", "edit:frontend", "vue", "edit:frontend", "react", "continue"
+    ], []), {});
+    expect(result?.stack).toEqual({});
+    expect(result?.changed).toBe(false);
+  });
+
   it("offers Custom when no compatible preset exists", async () => {
     const registry = await loadTestRegistry();
     const withoutPresets = new Registry(ExtensionKinds.flatMap((kind) =>

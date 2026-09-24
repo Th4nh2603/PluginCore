@@ -28,10 +28,17 @@ export interface MonorepoEditorInput {
 
 const compatible = (manifest: ExtensionManifest): boolean => {
   const types = manifest.compatibility?.projectTypes;
-  return Array.isArray(types) && types.includes("monorepo");
+  return !Array.isArray(types) || types.includes("monorepo");
 };
 
 const referenceId = (reference: string): string => reference.split("@")[0] ?? reference;
+
+const equivalentReference = (left: string, right: string): boolean => {
+  const [leftId, leftVersion = ""] = left.split("@");
+  const [rightId, rightVersion = ""] = right.split("@");
+  const normalized = (version: string): string => version.split(".").concat(["0", "0"]).slice(0, 3).join(".");
+  return leftId === rightId && normalized(leftVersion) === normalized(rightVersion);
+};
 
 const orderedComponents = (registry: Registry, category: CategoryKey, preferred: string): readonly ExtensionManifest[] =>
   registry.list("stack-component")
@@ -92,6 +99,14 @@ export const runMonorepoEditor = async (
   }
 
   for (const category of categories) {
+    const value = values[category.key];
+    if (value !== "" && !options[category.key].some((item) => equivalentReference(value, `${item.id}@${item.version}`))) {
+      values[category.key] = "";
+    }
+  }
+  if (values.auth !== "" && !authOptions.some((item) => item.id === `auth-${values.auth}`)) values.auth = "";
+
+  for (const category of categories) {
     const available = options[category.key];
     if (available.length === 1 && values[category.key] === "") {
       const only = available[0];
@@ -109,7 +124,11 @@ export const runMonorepoEditor = async (
       ...(input.authentication === undefined
         ? [{ name: `Authentication: ${displayValue(registry, "auth", values.auth)}`, value: "edit:auth" }]
         : []),
-      { name: "Continue — fixed: Vite · TypeScript · pnpm workspace · PostgreSQL · Vitest", value: "continue", tone: "success" }
+      {
+        name: `Continue — ${input.authentication === undefined ? "" : `Authentication: ${displayValue(registry, "auth", values.auth)} (fixed) · `}fixed: Vite · TypeScript · pnpm workspace · PostgreSQL · Vitest`,
+        value: "continue",
+        tone: "success"
+      }
     ];
     let action = await prompt.select("Configure stack", rows);
     if (!rows.some((row) => row.value === action)) return undefined;
@@ -121,7 +140,8 @@ export const runMonorepoEditor = async (
       const stack: Record<string, string> = {};
       for (const category of categories) {
         const chosen = values[category.key];
-        if (preset === undefined || chosen !== preset.selection?.stack[category.stackKey]) stack[category.stackKey] = chosen;
+        const initial = preset?.selection?.stack[category.stackKey];
+        if (initial === undefined || !equivalentReference(chosen, initial)) stack[category.stackKey] = chosen;
       }
       const changed = preset !== undefined && (
         Object.keys(stack).length > 0 || values.auth !== preferredAuth(preset)
