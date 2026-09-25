@@ -16,6 +16,8 @@ import { createManagedState, writeYamlAtomically } from "../execution/project-st
 import { generateCreateScaffold } from "../execution/legacy-create-generator.js";
 import { selectGenerationStrategy } from "../execution/generation-contract.js";
 import { generateAuthenticationCapability, selectAuthenticationExecutor } from "../execution/capabilities/authentication.js";
+import { selectAgentAdapter } from "../execution/agents/adapters.js";
+import type { AgentResolution } from "../core/resolver/agent-resolver.js";
 import { stringify } from "yaml";
 import { defaultGeneratorRunner, type GeneratorRunner } from "./generator-runner.js";
 
@@ -30,6 +32,7 @@ export interface CreateInput {
   readonly stack: Readonly<Record<string, string>>;
   readonly capabilities: readonly { readonly id: string; readonly version: string; readonly configRef?: string }[];
   readonly agentMode: RepoConfig["agents"]["mode"];
+  readonly agents?: readonly string[];
   readonly authentication?: AuthenticationProvider;
 }
 
@@ -39,6 +42,7 @@ export interface CreatePlan {
   readonly executionPlan: ExecutionPlan;
   readonly operations: readonly ("write-config" | "write-managed-state")[];
   readonly preview: string;
+  readonly agentResolution: AgentResolution;
 }
 
 const validName = /^[a-z0-9][a-z0-9-]*$/i;
@@ -60,20 +64,23 @@ export const planCreate = async (input: CreateInput): Promise<CreatePlan> => {
     stack: input.stack,
     capabilities: input.capabilities,
     agentMode: input.agentMode,
+    ...(input.agents === undefined ? {} : { agents: input.agents }),
     registry,
     ...(input.preset === undefined ? {} : { preset: input.preset }),
     ...(input.authentication === undefined ? {} : { authentication: input.authentication })
   });
   selectGenerationStrategy(resolution.config);
   selectAuthenticationExecutor(resolution.config);
+  for (const id of resolution.config.agents.adapters) selectAgentAdapter(id);
   const executionPlan = planCreateExecution({ resolution, targetDirectory });
 
   return {
     targetDirectory,
     config: resolution.config,
     executionPlan,
+    agentResolution: resolution.agentResolution,
     operations: ["write-config", "write-managed-state"],
-    preview: `Create ${input.name} (${input.projectType}) at ${targetDirectory}.`
+    preview: `Create ${input.name} (${input.projectType}) at ${targetDirectory}.\nAgents (${input.agentMode}): ${resolution.agentResolution.enabled.map((agent) => agent.id).join(", ") || "none"}.\n${resolution.agentResolution.explanation.join("\n")}`
   };
 };
 
@@ -88,6 +95,9 @@ export const applyCreatePlan = async (plan: CreatePlan, runner: GeneratorRunner 
       }
       if (operation.extension.kind === "capability" && operation.extension.id.startsWith("auth-")) {
         return generateAuthenticationCapability(operation.targetDirectory, plan.config, operation.extension.id, runner);
+      }
+      if (operation.extension.kind === "adapter") {
+        return { files: await selectAgentAdapter(operation.extension.id).render(operation.targetDirectory, plan.agentResolution) };
       }
       return { files: [] };
     },

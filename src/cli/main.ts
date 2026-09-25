@@ -10,6 +10,8 @@ import { runDoctor } from "../application/doctor-service.js";
 import type { GeneratorRunner } from "../application/generator-runner.js";
 import { buildInfo } from "../application/info-service.js";
 import { loadRegistry, type Registry } from "../core/registry/registry-loader.js";
+import { loadRepoConfig } from "../core/config/repo-config.js";
+import { resolveAgents } from "../core/resolver/agent-resolver.js";
 import type { ExtensionManifest } from "../core/registry/manifest.js";
 import { hasImplementedGenerator } from "../execution/generation-contract.js";
 import { parseArguments } from "./arguments.js";
@@ -132,6 +134,41 @@ const runCommand = async (argv: readonly string[], io: CliIo): Promise<number> =
     return report.errors.length === 0 ? 0 : 1;
   }
 
+  if (command.kind === "agents") {
+    if (command.action !== "explain") {
+      io.write("Usage: repo agents explain [--root <path>] [--intent <intent>] [--target <path>] [--text <task>]");
+      return 2;
+    }
+    const root = command.options.get("--root");
+    const registryOption = command.options.get("--registry");
+    const intent = command.options.get("--intent");
+    const target = command.options.get("--target");
+    const taskText = command.options.get("--text");
+    if ([root, registryOption, intent, target, taskText].some((value) => value === true)) {
+      io.write("Agent explanation options require values.");
+      return 2;
+    }
+    const config = await loadRepoConfig(typeof root === "string" ? root : process.cwd());
+    const registry = await loadRegistry(typeof registryOption === "string" ? registryOption : defaultRegistryRoot());
+    const resolution = resolveAgents({
+      registry,
+      projectType: config.project.type,
+      mode: config.agents.mode,
+      ...(config.agents.mode === "custom" ? { selected: config.agents.enabled.map(referenceId) } : {}),
+      capabilities: config.composition.capabilities?.map((capability) => capability.id) ?? [],
+      task: {
+        ...(typeof intent === "string" ? { intent } : {}),
+        targetPaths: typeof target === "string" ? target.split(",").map((value) => value.trim()).filter(Boolean) : [],
+        text: typeof taskText === "string" ? taskText : ""
+      }
+    });
+    io.write(`Enabled: ${resolution.enabled.map((agent) => agent.id).join(", ") || "none"}`);
+    for (const explanation of resolution.explanation) io.write(explanation);
+    const optional = resolution.recommended.filter((agent) => !resolution.enabled.some((enabled) => enabled.id === agent.id));
+    io.write(`Recommended: ${optional.map((agent) => agent.id).join(", ") || "none"}`);
+    return 0;
+  }
+
   if (command.kind === "create") {
     const color = io.color ?? (process.stdout.isTTY === true && process.env.NO_COLOR === undefined);
     const interactive = io.prompt;
@@ -153,6 +190,41 @@ const runCommand = async (argv: readonly string[], io: CliIo): Promise<number> =
 
     const configuredPreset = command.options.get("--preset");
     const configuredAuthentication = command.options.get("--auth");
+    const configuredAgentMode = command.options.get("--agents");
+    const configuredAgents = command.options.get("--agent");
+    const agentModes = ["automatic", "recommended", "custom", "none"] as const;
+    if (configuredAgentMode !== undefined && (typeof configuredAgentMode !== "string" || !agentModes.some((mode) => mode === configuredAgentMode))) {
+      io.write("--agents must be automatic, recommended, custom, or none.");
+      return 2;
+    }
+    let agentMode = typeof configuredAgentMode === "string" ? configuredAgentMode as typeof agentModes[number] : "automatic";
+    let agents = typeof configuredAgents === "string" ? configuredAgents.split(",").map((id) => id.trim()).filter(Boolean) : [];
+    if (interactive !== undefined && configuredAgentMode === undefined && (registry.get("project-type", projectType)?.agentHints?.recommended.length ?? 0) > 0) {
+      const choice = await interactive.select("Agent setup", [
+        { name: "Automatic (recommended)", value: "automatic" },
+        { name: "Show recommendations", value: "recommended" },
+        { name: "Custom roles", value: "custom" },
+        { name: "None", value: "none" }
+      ]);
+      if (!agentModes.some((mode) => mode === choice)) {
+        io.write("Choose a valid agent setup mode.");
+        return 2;
+      }
+      agentMode = choice as typeof agentModes[number];
+      if (agentMode === "custom") agents = (await interactive.input("Agent IDs (comma-separated)"))
+        .split(",").map((id) => id.trim()).filter(Boolean);
+    }
+    if ((configuredAgents !== undefined && (agentMode !== "custom" || agents.length === 0)) || (agentMode === "custom" && agents.length === 0)) {
+      io.write("--agent requires --agents custom and a comma-separated list of agent IDs.");
+      return 2;
+    }
+    for (const id of agents) {
+      const manifest = registry.get("agent", id);
+      if (manifest === undefined || !isCompatible(manifest, projectType) || manifest.agent === undefined) {
+        io.write(`Agent "${id}" is not available for ${projectType}.`);
+        return 2;
+      }
+    }
     const compatiblePresets = registry.list("preset").filter((preset) => isCompatible(preset, projectType));
     const recommendedPreset = compatiblePresets[0];
     const authCapabilities = authenticationCapabilities(registry, projectType);
@@ -206,7 +278,8 @@ const runCommand = async (argv: readonly string[], io: CliIo): Promise<number> =
           authentication: selection.authentication,
           stack: selection.stack,
           capabilities: [],
-          agentMode: "automatic"
+          agentMode,
+          agents
         });
         const stack = plan.config.composition.stack;
         const label = (reference: string | undefined): string => reference === undefined ? "Not selected" :
@@ -221,6 +294,7 @@ const runCommand = async (argv: readonly string[], io: CliIo): Promise<number> =
           orm: label(stack.orm),
           authentication: registry.get("capability", `auth-${selection.authentication}`)?.displayName ?? selection.authentication
         }, color));
+        io.write(plan.agentResolution.explanation.join("\n") || "Agents: none");
         const action = await interactive.select("Review", [
           { name: "Install", value: "install", tone: "success" },
           { name: "Edit stack", value: "edit", tone: "custom" },
@@ -300,7 +374,8 @@ const runCommand = async (argv: readonly string[], io: CliIo): Promise<number> =
       ...(authentication === undefined ? {} : { authentication }),
       stack,
       capabilities: [],
-      agentMode: "automatic"
+      agentMode,
+      agents
     });
 
     if (selectedPreset !== undefined) {
@@ -335,7 +410,8 @@ const runCommand = async (argv: readonly string[], io: CliIo): Promise<number> =
             ...(authentication === undefined ? {} : { authentication }),
             stack,
             capabilities: [],
-            agentMode: "automatic"
+            agentMode,
+            agents
           });
         } else if (installation !== "install") {
           io.write(formatWarning("Choose Install or Choose Custom setup.", color));

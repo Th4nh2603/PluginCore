@@ -4,5 +4,15 @@ kind: agent
 version: 1.0.0
 displayName: Backend Agent
 description: Owns Express API work in apps/api.
+compatibility: { projectTypes: [api, monorepo] }
 agentHints:
   recommended: [reviewer]
+agent:
+  expertise: [backend, api, database]
+  intents: [feature, bugfix, refactor, test]
+  signals: [backend, api, express, fastify, database]
+  owns: [apps/api, src]
+  commands: [pnpm --filter ./apps/api build]
+  ownsByProjectType: { api: [src], monorepo: [apps/api] }
+  commandsByProjectType: { api: [pnpm build], monorepo: [pnpm --filter ./apps/api build] }
+  instructions: Own API routes and validation. Preserve GET /health and keep secrets out of source.

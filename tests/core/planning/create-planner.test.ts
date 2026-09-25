@@ -19,7 +19,8 @@ const resolution: CreateResolutionPlan = {
   config,
   selected: [{ kind: "project-type", id: "web", version: "1.0.0" }],
   unresolved: [],
-  diagnostics: []
+  diagnostics: [],
+  agentResolution: { projectType: "web", enabled: [], recommended: [], explanation: [] }
 };
 
 describe("planCreateExecution", () => {

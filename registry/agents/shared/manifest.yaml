@@ -4,5 +4,13 @@ kind: agent
 version: 1.0.0
 displayName: Shared Package Agent
 description: Owns TypeScript contracts in packages/shared.
+compatibility: { projectTypes: [monorepo] }
 agentHints:
   recommended: [reviewer]
+agent:
+  expertise: [contracts, typescript]
+  intents: [feature, bugfix, refactor, test]
+  signals: [shared, contract, types]
+  owns: [packages/shared]
+  commands: [pnpm --filter ./packages/shared build]
+  instructions: Own public TypeScript contracts and preserve compatibility.

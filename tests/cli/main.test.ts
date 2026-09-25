@@ -14,6 +14,7 @@ interface ParsedRepoConfig {
     readonly authentication?: string;
     readonly capabilities?: readonly { readonly id: string; readonly version: string }[];
   };
+  readonly agents: { readonly mode: string; readonly enabled: readonly string[] };
 }
 
 const readConfig = async (targetDirectory: string): Promise<ParsedRepoConfig> =>
@@ -29,6 +30,123 @@ const writeEmptyRegistry = async (registryRoot: string): Promise<void> => {
 };
 
 describe("runCli", () => {
+  it("explains a task-specific agent selection from a generated project", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-agent-explain-"));
+    const targetDirectory = path.join(root, "platform");
+    const output: string[] = [];
+    try {
+      expect(await runCli(["create", "platform", "--type", "monorepo", "--target", targetDirectory, "--yes"], {
+        write: () => undefined,
+        generatorRunner: { run: async () => undefined }
+      })).toBe(0);
+
+      const exitCode = await runCli(["agents", "explain", "--root", targetDirectory,
+        "--intent", "feature", "--target", "apps/api/src/auth/router.ts", "--text", "Change login authorization"], {
+        write: (line) => output.push(line)
+      });
+      expect(exitCode).toBe(0);
+      expect(output.join("\n")).toContain("backend: Owns a target path");
+      expect(output.join("\n")).toContain("security: Matches a feature task signal");
+      expect(output.join("\n")).toContain("Recommended: reviewer");
+      expect(output.join("\n")).not.toContain("frontend:");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+  it("accepts --agents none and leaves generated projects without role files", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-agent-none-"));
+    const targetDirectory = path.join(root, "platform");
+    try {
+      const exitCode = await runCli(["create", "platform", "--type", "monorepo", "--agents", "none", "--target", targetDirectory, "--yes"], {
+        write: () => undefined,
+        generatorRunner: { run: async () => undefined }
+      });
+      expect(exitCode).toBe(0);
+      expect((await readConfig(targetDirectory)).agents).toEqual({ mode: "none", enabled: [], adapters: [] });
+      expect(existsSync(path.join(targetDirectory, "AGENTS.md"))).toBe(false);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("lets an interactive Monorepo choose no agents before review", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-agent-choice-"));
+    const targetDirectory = path.join(root, "platform");
+    const messages: string[] = [];
+    try {
+      const exitCode = await runCli(["create", "platform", "--type", "monorepo", "--target", targetDirectory], {
+        write: () => undefined,
+        prompt: {
+          input: async () => "unused",
+          confirm: async () => false,
+          select: async (message) => {
+            messages.push(message);
+            return ({ "Agent setup": "none", "Start from": "recommended", "Configure stack": "continue", Review: "install" })[message] ?? "invalid";
+          }
+        },
+        generatorRunner: { run: async () => undefined }
+      });
+      expect(exitCode).toBe(0);
+      expect(messages).toContain("Agent setup");
+      expect((await readConfig(targetDirectory)).agents.mode).toBe("none");
+      expect(existsSync(path.join(targetDirectory, "AGENTS.md"))).toBe(false);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("accepts an interactive custom role list", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-agent-interactive-"));
+    const targetDirectory = path.join(root, "platform");
+    try {
+      const exitCode = await runCli(["create", "platform", "--type", "monorepo", "--target", targetDirectory], {
+        write: () => undefined,
+        prompt: {
+          input: async (message) => message === "Agent IDs (comma-separated)" ? "backend,reviewer" : "unused",
+          confirm: async () => false,
+          select: async (message) => ({ "Agent setup": "custom", "Start from": "recommended", "Configure stack": "continue", Review: "install" })[message] ?? "invalid"
+        },
+        generatorRunner: { run: async () => undefined }
+      });
+      expect(exitCode).toBe(0);
+      expect((await readConfig(targetDirectory)).agents.enabled).toEqual(["backend@1.0.0", "reviewer@1.0.0"]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("accepts an explicit custom agent selection and explains it", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-agent-custom-"));
+    const targetDirectory = path.join(root, "platform");
+    const output: string[] = [];
+    try {
+      const exitCode = await runCli(["create", "platform", "--type", "monorepo", "--agents", "custom", "--agent", "backend,reviewer", "--target", targetDirectory, "--yes"], {
+        write: (line) => output.push(line),
+        generatorRunner: { run: async () => undefined }
+      });
+      expect(exitCode).toBe(0);
+      expect((await readConfig(targetDirectory)).agents.enabled).toEqual(["backend@1.0.0", "reviewer@1.0.0"]);
+      expect(output.join("\n")).toContain("backend: Selected explicitly.");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects an unavailable custom agent without creating a target", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-agent-invalid-"));
+    const targetDirectory = path.join(root, "platform");
+    const output: string[] = [];
+    try {
+      const exitCode = await runCli(["create", "platform", "--type", "monorepo", "--agents", "custom", "--agent", "missing", "--target", targetDirectory, "--yes"], {
+        write: (line) => output.push(line)
+      });
+      expect(exitCode).toBe(2);
+      expect(output.join("\n")).toContain('Agent "missing" is not available for monorepo.');
+      expect(existsSync(targetDirectory)).toBe(false);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
   it("prints command help without reading the filesystem", async () => {
     const output: string[] = [];
     const exitCode = await runCli(["--help"], { write: (line) => output.push(line) });
@@ -97,6 +215,7 @@ describe("runCli", () => {
         prompt: {
           input: async () => "interactive-demo",
           select: async (message: string) => {
+            if (message === "Agent setup") return "automatic";
             if (message === "Project type") return "empty";
             if (message === "Setup") return "custom";
             if (message === "Install stack") return "install";
@@ -123,6 +242,7 @@ describe("runCli", () => {
         prompt: {
           input: async () => "unused",
           select: async (message: string) => {
+            if (message === "Agent setup") return "automatic";
             if (message === "Project type") return "web";
             if (message === "Setup") return "recommended";
             if (message === "Recommended preset") return "recommended-web";
@@ -154,6 +274,7 @@ describe("runCli", () => {
         prompt: {
           input: async () => "unused",
           select: async (message: string, choices: readonly { readonly name: string; readonly value: string }[]) => {
+            if (message === "Agent setup") return "automatic";
             if (message === "Project type") {
               monorepoOption = choices.find((choice) => choice.value === "monorepo")?.name ?? "";
               return "empty";
@@ -183,6 +304,7 @@ describe("runCli", () => {
         prompt: {
           input: async () => "unused",
           select: async (message: string) => {
+            if (message === "Agent setup") return "automatic";
             if (message === "Project type") return "monorepo";
             if (message === "Start from") return "recommended";
             if (message === "Configure stack") return "continue";
@@ -213,6 +335,7 @@ describe("runCli", () => {
         prompt: {
           input: async () => "unused",
           select: async (message: string) => {
+            if (message === "Agent setup") return "automatic";
             if (message === "Start from") return "custom";
             if (message === "Configure stack") return ["edit:frontend", "edit:backend", "edit:orm", "edit:auth", "continue"][configureCount++] ?? "invalid";
             if (message === "Authentication") return "clerk";
@@ -296,6 +419,7 @@ describe("runCli", () => {
         prompt: {
           input: async () => "unused",
           select: async (message: string) => {
+            if (message === "Agent setup") return "automatic";
             if (message === "Project type") return "web";
             if (message === "Setup") return "custom";
             if (message === "Frontend") return "react";
@@ -325,6 +449,7 @@ describe("runCli", () => {
           input: async () => "unused",
           select: async (message: string) => {
             selectMessages.push(message);
+            if (message === "Agent setup") return "automatic";
             if (message === "Project type") return "web";
             if (message === "Setup") return "custom";
             if (message === "Frontend") return "react";
@@ -336,7 +461,7 @@ describe("runCli", () => {
         generatorRunner: { run: async () => undefined }
       } as never);
       expect(exitCode).toBe(0);
-      expect(selectMessages).toEqual(["Project type", "Setup", "Frontend", "Install stack"]);
+      expect(selectMessages).toEqual(["Project type", "Agent setup", "Setup", "Frontend", "Install stack"]);
       expect(existsSync(path.join(targetDirectory, "repo.config.yaml"))).toBe(true);
     } finally {
       await rm(root, { recursive: true, force: true });

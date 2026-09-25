@@ -1,0 +1,6 @@
+schemaVersion: 1
+id: codex
+kind: adapter
+version: 1.0.0
+displayName: Codex Agent Adapter
+description: Renders selected agent roles as AGENTS.md and agents/*.toml.

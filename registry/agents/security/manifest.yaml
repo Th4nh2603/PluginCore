@@ -1,0 +1,16 @@
+schemaVersion: 1
+id: security
+kind: agent
+version: 1.0.0
+displayName: Security Agent
+description: Reviews authentication, authorization and secrets.
+compatibility: { projectTypes: [web, api, monorepo] }
+agent:
+  expertise: [authentication, authorization, secrets, input-validation]
+  intents: [security, feature, bugfix, review]
+  signals: [auth, authentication, authorization, login, permission, secret, token, payment]
+  owns: []
+  commands: []
+  instructions: Assess authentication, authorization, secret handling and input validation.
+  reviewOnly: true
+  requiredOnSignal: true

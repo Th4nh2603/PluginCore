@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { RepoConfigSchema } from "../../../src/core/config/repo-config.js";
-import { Registry } from "../../../src/core/registry/registry-loader.js";
+import { loadRegistry, Registry } from "../../../src/core/registry/registry-loader.js";
 import type { ExtensionManifest } from "../../../src/core/registry/manifest.js";
 import { resolveCreateComposition } from "../../../src/core/resolver/create-resolver.js";
 
@@ -27,15 +27,6 @@ const preset = (
   selection: { stack: { ...stack } }
 });
 
-const capability = (id: string, projectTypes: readonly string[]): ExtensionManifest => ({
-  schemaVersion: 1,
-  id,
-  kind: "capability",
-  version: "1.0.0",
-  displayName: id,
-  compatibility: { projectTypes: [...projectTypes] }
-});
-
 const input = (registry: Registry, overrides: Partial<Parameters<typeof resolveCreateComposition>[0]> = {}) => ({
   name: "demo",
   projectType: "web",
@@ -47,6 +38,15 @@ const input = (registry: Registry, overrides: Partial<Parameters<typeof resolveC
 });
 
 describe("resolveCreateComposition", () => {
+  it("takes the host adapter ID from project metadata", () => {
+    const registry = new Registry([
+      { schemaVersion: 1, id: "web", kind: "project-type", version: "1.0.0", displayName: "Web", selection: { stack: {}, adapters: ["custom-host"] }, agentHints: { required: [], recommended: ["frontend"] } },
+      { schemaVersion: 1, id: "frontend", kind: "agent", version: "1.0.0", displayName: "Frontend", agent: { expertise: [], intents: [], signals: [], owns: [], commands: [], instructions: "Work on UI.", reviewOnly: false, requiredOnSignal: false } },
+      { schemaVersion: 1, id: "custom-host", kind: "adapter", version: "1.0.0", displayName: "Custom Host" }
+    ]);
+    const resolution = resolveCreateComposition(input(registry));
+    expect(resolution.config.agents.adapters).toEqual(["custom-host"]);
+  });
   it("rejects a project type missing from the registry", () => {
     const registry = new Registry([]);
 
@@ -99,11 +99,8 @@ describe("resolveCreateComposition", () => {
     });
   });
 
-  it("keeps the current automatic monorepo agent selection", () => {
-    const registry = new Registry([
-      projectType("monorepo"),
-      capability("auth-custom", ["monorepo"])
-    ]);
+  it("keeps the current automatic monorepo agent selection", async () => {
+    const registry = await loadRegistry("registry");
 
     const resolution = resolveCreateComposition(
       input(registry, { projectType: "monorepo", authentication: "custom" })

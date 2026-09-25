@@ -22,6 +22,7 @@ describe("Custom stack wizard", () => {
           confirm: async () => { throw new Error("Use the installation menu"); },
           select: async (message, choices) => {
             prompts.push(message);
+            if (message === "Agent setup") return "automatic";
             if (message === "Start from") return fromRecommended ? "recommended" : "custom";
             if (message === "Configure stack") {
               const actions = fromRecommended
@@ -74,6 +75,7 @@ describe("Custom stack wizard", () => {
         prompt: {
           input: async () => "unused", confirm: async () => false,
           select: async (message) => {
+            if (message === "Agent setup") return "automatic";
             if (message === "Start from") return "custom";
             if (message === "Configure stack") return ["edit:frontend", "edit:backend", "edit:orm", "edit:auth", "continue"][configureCount++] ?? "invalid";
             if (message === invalidStep) return "invalid";
@@ -87,8 +89,8 @@ describe("Custom stack wizard", () => {
   });
 
   it.each([
-    ["web", ["Setup", "Frontend", "Install stack"]],
-    ["api", ["Setup", "Backend", "ORM", "Install stack"]]
+    ["web", ["Agent setup", "Setup", "Frontend", "Install stack"]],
+    ["api", ["Agent setup", "Setup", "Backend", "ORM", "Install stack"]]
   ] as const)("only offers relevant categories for %s", async (type, expectedQuestions) => {
     const root = await mkdtemp(path.join(os.tmpdir(), "custom-categories-"));
     const target = path.join(root, "demo");
@@ -100,6 +102,7 @@ describe("Custom stack wizard", () => {
           input: async () => "unused", confirm: async () => false,
           select: async (message) => {
             questions.push(message);
+            if (message === "Agent setup") return "automatic";
             return ({ Setup: "custom", Frontend: "vue", Backend: "fastify", ORM: "drizzle", "Install stack": "install" })[message] ?? "invalid";
           }
         }

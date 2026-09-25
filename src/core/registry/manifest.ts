@@ -30,7 +30,8 @@ export const ExtensionManifestSchema = z
     selection: z
       .object({
         stack: z.record(z.string(), z.string()).default({}),
-        capabilities: z.array(extensionId).optional()
+        capabilities: z.array(extensionId).optional(),
+        adapters: z.array(extensionId).optional()
       })
       .optional(),
     dependencies: z.array(extensionId).optional(),
@@ -40,7 +41,19 @@ export const ExtensionManifestSchema = z
         required: z.array(extensionId).default([]),
         recommended: z.array(extensionId).default([])
       })
-      .optional()
+      .optional(),
+    agent: z.object({
+      expertise: z.array(z.string()).default([]),
+      intents: z.array(z.string()).default([]),
+      signals: z.array(z.string()).default([]),
+      owns: z.array(z.string()).default([]),
+      commands: z.array(z.string()).default([]),
+      ownsByProjectType: z.record(z.string(), z.array(z.string())).optional(),
+      commandsByProjectType: z.record(z.string(), z.array(z.string())).optional(),
+      instructions: z.string().min(1),
+      reviewOnly: z.boolean().default(false),
+      requiredOnSignal: z.boolean().default(false)
+    }).strict().optional()
   })
   .strict();
 

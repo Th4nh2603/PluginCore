@@ -140,6 +140,7 @@ Usage:
   repo --help
   repo info
   repo doctor
-  repo create <name> [--auth <provider>]`;
+  repo create <name> [--auth <provider>] [--agents automatic|recommended|custom|none] [--agent <ids>]
+  repo agents explain [--root <path>] [--intent <intent>] [--target <path>] [--text <task>]`;
 
 export const infoText = (info: PluginInfo): string => `${info.id} ${info.version}`;

@@ -4,3 +4,12 @@ kind: agent
 version: 1.0.0
 displayName: Reviewer Agent
 description: Reviews changes across workspace boundaries without implementing them.
+agent:
+  expertise: [review, testing]
+  intents: [review]
+  signals: [review, audit]
+  owns: []
+  commands: [pnpm test, pnpm lint]
+  commandsByProjectType: { web: [pnpm build], api: [pnpm build], monorepo: [pnpm test, pnpm build] }
+  instructions: Review changes and verification evidence. Report findings without editing source.
+  reviewOnly: true

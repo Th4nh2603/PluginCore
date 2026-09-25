@@ -30,6 +30,8 @@ describe("loadRegistry", () => {
   it("ships the Monorepo role definitions", async () => {
     const registry = await loadRegistry(path.join(process.cwd(), "registry"));
 
-    expect(registry.list("agent").map((manifest) => manifest.id)).toEqual(["backend", "frontend", "reviewer", "shared"]);
+    expect(registry.list("agent").map((manifest) => manifest.id)).toEqual([
+      "architect", "backend", "data", "frontend", "reviewer", "security", "shared", "testing"
+    ]);
   });
 });

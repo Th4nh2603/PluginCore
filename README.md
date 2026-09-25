@@ -42,8 +42,9 @@ repo create
 Wizard hỏi tên repository, loại project và cách thiết lập. Dùng phím ↑/↓ để di chuyển, rồi nhấn Enter để chọn:
 
 1. Chọn loại project được generator hỗ trợ: `web`, `api`, `monorepo` hoặc `empty`.
-2. Với Monorepo, chọn **Recommended Monorepo** hoặc **Custom** làm điểm bắt đầu. Preset điền sẵn React, Express, Prisma và Custom Authentication; bạn có thể đổi từng mục ngay tại menu **Configure stack**. Sau đó chọn **Review** → **Install**, **Edit stack** hoặc **Cancel**. Tham số `--preset recommended-monorepo-clerk` vẫn điền sẵn Clerk.
-3. Với Web/API/Empty, chọn **Recommended** hoặc **Custom** theo luồng hiện tại. Các nhóm có thể chọn gồm:
+2. Nếu loại project có vai trò agent trong registry, chọn **Agent setup**: Automatic, Recommended, Custom hoặc None. Automatic là mặc định khi chạy bằng tham số.
+3. Với Monorepo, chọn **Recommended Monorepo** hoặc **Custom** làm điểm bắt đầu. Preset điền sẵn React, Express, Prisma và Custom Authentication; bạn có thể đổi từng mục ngay tại menu **Configure stack**. Sau đó chọn **Review** → **Install**, **Edit stack** hoặc **Cancel**. Tham số `--preset recommended-monorepo-clerk` vẫn điền sẵn Clerk.
+4. Với Web/API/Empty, chọn **Recommended** hoặc **Custom** theo luồng hiện tại. Các nhóm có thể chọn gồm:
 
 | Nhóm | Lựa chọn | Loại project |
 | --- | --- | --- |
@@ -83,6 +84,7 @@ Sau khi tạo, đọc README của project và hướng dẫn CLI in ra. Custom 
 | `repo info` | Hiển thị tên và phiên bản CLI |
 | `repo create [name]` | Tạo project bằng wizard hoặc tham số |
 | `repo doctor` | Kiểm tra `repo.config.yaml` trong thư mục hiện tại |
+| `repo agents explain` | Giải thích lựa chọn agent cho một tác vụ trong project đã tạo |
 
 `doctor` kiểm tra cấu hình, không kiểm tra toàn bộ môi trường hay ứng dụng. Thiếu file cấu hình sẽ tạo cảnh báo.
 
@@ -92,6 +94,8 @@ Sau khi tạo, đọc README của project và hướng dẫn CLI in ra. Custom 
 | `--preset <id>` | Preset, ví dụ `recommended-web`, `recommended-monorepo` |
 | `--target <path>` | Thư mục đích; đặt đường dẫn có khoảng trắng trong ngoặc kép |
 | `--auth <provider>` | `custom` hoặc `clerk`; hiện chỉ hỗ trợ cho `monorepo` |
+| `--agents <mode>` | `automatic`, `recommended`, `custom` hoặc `none` |
+| `--agent <ids>` | Danh sách ID ngăn bằng dấu phẩy khi dùng `--agents custom`, ví dụ `backend,reviewer` |
 | `--registry <path>` | Registry thay thế |
 | `--yes` | Cho phép ghi file khi chạy không có terminal tương tác |
 
@@ -102,6 +106,8 @@ repo create my-web --type web --preset recommended-web --yes
 ```
 
 Ở chế độ không tương tác, bỏ `--yes` để xem preview mà chưa ghi file (exit code `2`). `--yes` hiện không tắt wizard trong terminal tương tác.
+
+Agent được chọn từ manifest trong registry và ghi vào `agents.enabled` của `repo.config.yaml`. Codex adapter tạo `AGENTS.md` cùng các file `agents/*.toml`; `none` không tạo các file này khi tạo project. Các vai trò chỉ là hướng dẫn làm việc, không tự khởi chạy agent. Xem [hệ thống agent](docs/agents.md) để dùng mode và lệnh giải thích theo tác vụ.
 
 ## Windows / PowerShell
 

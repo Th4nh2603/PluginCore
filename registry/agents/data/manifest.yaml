@@ -1,0 +1,14 @@
+schemaVersion: 1
+id: data
+kind: agent
+version: 1.0.0
+displayName: Data Agent
+description: Owns data models and migrations.
+compatibility: { projectTypes: [api, monorepo] }
+agent:
+  expertise: [data, database, migrations]
+  intents: [feature, bugfix, refactor]
+  signals: [database, schema, migration, prisma, drizzle]
+  owns: [apps/api/prisma, apps/api/drizzle]
+  commands: []
+  instructions: Review data models and migrations. Preserve existing application data.

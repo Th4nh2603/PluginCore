@@ -3,3 +3,7 @@ id: api
 kind: project-type
 version: 1.0.0
 displayName: API / Backend Service
+selection:
+  adapters: [codex]
+agentHints:
+  recommended: [backend, reviewer]

@@ -92,7 +92,7 @@
 
 ### Task 4: Extract authentication as capabilities
 
-**Status:** Complete in `49fb097` (`refactor: model authentication as capabilities`). The auth manifests and generic capability resolver already existed when this task began. This task made the selected capability own file generation, moved Custom/Clerk templates into `src/execution/capabilities/`, and added a pre-write check for capabilities without an executor. Task 5 is next.
+**Status:** Complete in `49fb097` (`refactor: model authentication as capabilities`). The auth manifests and generic capability resolver already existed when this task began. This task made the selected capability own file generation, moved Custom/Clerk templates into `src/execution/capabilities/`, and added a pre-write check for capabilities without an executor.
 
 **Files:**
 - Create: `registry/capabilities/auth-custom/manifest.yaml`
@@ -120,6 +120,8 @@
 
 ### Task 5: Resolve and render agents through an adapter
 
+**Status:** Complete. The wider Phase 5 agent system also includes the built-in role catalog, all four modes, interactive and flag-driven selection, task-context explanations through `repo agents explain`, and project-specific Codex role files. Task 6 is next for this plan.
+
 **Files:**
 - Create: `src/core/resolver/agent-resolver.ts`
 - Create: `src/execution/agents/agent-adapter.ts`
@@ -133,13 +135,13 @@
 - `resolveAgents(...)` returns agent extension references based on mode/project composition.
 - `CodexAgentAdapter` renders current `AGENTS.md` + TOML files from resolved agent definitions.
 
-- [ ] **Step 1: Write failing tests** for automatic monorepo agent selection and reviewer review-only behavior.
-- [ ] **Step 2: Write failing Codex adapter output test.**
-- [ ] **Step 3: Run focused tests and verify RED.**
-- [ ] **Step 4: Extend agent manifests with only metadata required by current behavior.**
-- [ ] **Step 5: Implement resolver + Codex adapter and remove hardcoded agent IDs/TOML bodies from `create-service.ts`.**
-- [ ] **Step 6: Run focused and full verification.**
-- [ ] **Step 7: Commit** `refactor: generate agents through adapter`.
+- [x] **Step 1: Write failing tests** for automatic monorepo agent selection and reviewer review-only behavior.
+- [x] **Step 2: Write failing Codex adapter output test.**
+- [x] **Step 3: Run focused tests and verify RED.**
+- [x] **Step 4: Extend agent manifests with only metadata required by current behavior.**
+- [x] **Step 5: Implement resolver + Codex adapter and remove hardcoded agent IDs/TOML bodies from the generators.**
+- [x] **Step 6: Run focused and full verification.**
+- [x] **Step 7: Commit** `refactor: generate agents through adapter`.
 
 ### Task 6: Track managed files and align documentation
 

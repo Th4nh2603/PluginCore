@@ -4,5 +4,15 @@ kind: agent
 version: 1.0.0
 displayName: Frontend Agent
 description: Owns React and Vite work in apps/web.
+compatibility: { projectTypes: [web, monorepo] }
 agentHints:
   recommended: [reviewer]
+agent:
+  expertise: [frontend, accessibility, user-interface]
+  intents: [feature, bugfix, refactor, design, test]
+  signals: [frontend, react, vue, web, accessibility]
+  owns: [apps/web, src]
+  commands: [pnpm --filter ./apps/web build]
+  ownsByProjectType: { web: [src], monorepo: [apps/web] }
+  commandsByProjectType: { web: [pnpm build], monorepo: [pnpm --filter ./apps/web build] }
+  instructions: Own the web interface and preserve accessibility. Run the web build after changes.

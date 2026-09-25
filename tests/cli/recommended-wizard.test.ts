@@ -23,6 +23,7 @@ describe("recommended create wizard", () => {
           confirm: async () => false,
           select: async (message) => {
             messages.push(message);
+            if (message === "Agent setup") return "automatic";
             if (message === "Start from") return "recommended";
             if (message === "Configure stack") return messages.filter((item) => item === "Configure stack").length === 1 ? "edit:frontend" : "continue";
             if (message === "Frontend") return "vue";
@@ -37,7 +38,7 @@ describe("recommended create wizard", () => {
         generatorRunner: { run: async () => undefined }
       });
       expect(exitCode).toBe(0);
-      expect(messages).toEqual(["Start from", "Configure stack", "Frontend", "Configure stack", "Review"]);
+      expect(messages).toEqual(["Agent setup", "Start from", "Configure stack", "Frontend", "Configure stack", "Review"]);
       const config = parse(await readFile(path.join(targetDirectory, "repo.config.yaml"), "utf8"));
       expect(config.composition.preset).toBe("recommended-monorepo@1.0.0");
       expect(config.composition.stack["frontend-library"]).toBe("vue@3.0.0");
@@ -58,6 +59,7 @@ describe("recommended create wizard", () => {
           input: async () => "unused",
           confirm: async () => false,
           select: async (message) => {
+            if (message === "Agent setup") return "automatic";
             if (message === "Start from") return "recommended";
             if (message === "Configure stack") return ["continue", "edit:auth", "continue"][configureCount++] ?? "invalid";
             if (message === "Authentication") return "clerk";
@@ -84,6 +86,7 @@ describe("recommended create wizard", () => {
         prompt: {
           input: async () => "unused", confirm: async () => false,
           select: async (message) => {
+            if (message === "Agent setup") return "automatic";
             if (message === "Start from") return "recommended";
             if (message === "Configure stack") return "continue";
             if (message === "Review") return "install";
@@ -105,7 +108,7 @@ describe("recommended create wizard", () => {
         write: () => undefined,
         prompt: {
           input: async () => "unused", confirm: async () => false,
-          select: async (message) => ({ "Start from": "recommended", "Configure stack": "continue", Review: "cancel" })[message] ?? "invalid"
+          select: async (message) => ({ "Agent setup": "automatic", "Start from": "recommended", "Configure stack": "continue", Review: "cancel" })[message] ?? "invalid"
         },
         generatorRunner: { run: async () => { throw new Error("Generator must not run"); } }
       });
@@ -127,6 +130,7 @@ describe("recommended create wizard", () => {
           input: async () => "unused",
           select: async (message: string, choices: readonly SelectOption[]) => {
             selectMessages.push(message);
+            if (message === "Agent setup") return "automatic";
 
             if (message === "Project type") {
               expect(choices.find((choice) => choice.value === "monorepo")?.name).toBe("Monorepo");
@@ -153,7 +157,7 @@ describe("recommended create wizard", () => {
       } as never);
 
       expect(exitCode).toBe(0);
-      expect(selectMessages).toEqual(["Project type", "Start from", "Configure stack", "Review"]);
+      expect(selectMessages).toEqual(["Project type", "Agent setup", "Start from", "Configure stack", "Review"]);
       expect(output.join("\n")).toContain("Recommended Monorepo");
       expect(output.join("\n")).toContain("Frontend: React");
       expect(output.join("\n")).toContain("Authentication: Custom Authentication");
@@ -178,6 +182,7 @@ describe("recommended create wizard", () => {
         prompt: {
           input: async () => "unused",
           select: async (message) => {
+            if (message === "Agent setup") return "automatic";
             if (message === "Configure stack") return "continue";
             if (message === "Review") return "install";
             throw new Error(`Unexpected select prompt: ${message}`);
@@ -208,6 +213,7 @@ describe("recommended create wizard", () => {
         prompt: {
           input: async () => "unused",
           select: async (message: string, choices: readonly { readonly name: string; readonly value: string }[]) => {
+            if (message === "Agent setup") return "automatic";
             if (message === "Project type") return "monorepo";
             if (message === "Start from") return "custom";
             if (message === "Configure stack") {
@@ -253,7 +259,7 @@ describe("recommended create wizard", () => {
         write: (line: string) => output.push(line),
         prompt: {
           input: async () => "unused",
-          select: async (message: string) => ({ "Start from": "recommended", "Configure stack": "continue", Review: "invalid" }[message] ?? ""),
+          select: async (message: string) => ({ "Agent setup": "automatic", "Start from": "recommended", "Configure stack": "continue", Review: "invalid" }[message] ?? ""),
           confirm: async () => false
         },
         generatorRunner: { run: async () => { throw new Error("Generator must not run without approval."); } }

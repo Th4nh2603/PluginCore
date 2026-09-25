@@ -20,6 +20,37 @@ afterEach(async () => {
 });
 
 describe("planCreate", () => {
+  it("resolves agent modes and renders only selected roles", async () => {
+    const root = await makeRoot();
+    const targetDirectory = path.join(root, "platform");
+    const plan = await planCreate({
+      name: "platform", projectType: "monorepo", targetDirectory,
+      registryRoot: path.resolve("registry"), preset: "recommended-monorepo",
+      stack: {}, capabilities: [], agentMode: "custom", agents: ["backend", "reviewer"]
+    });
+
+    expect(plan.config.agents).toEqual({
+      mode: "custom", enabled: ["backend@1.0.0", "reviewer@1.0.0"], adapters: ["codex"]
+    });
+    await applyCreatePlan(plan, { run: async () => undefined });
+    expect(existsSync(path.join(targetDirectory, "agents/backend.toml"))).toBe(true);
+    expect(existsSync(path.join(targetDirectory, "agents/frontend.toml"))).toBe(false);
+    expect(await readFile(path.join(targetDirectory, "agents/reviewer.toml"), "utf8")).toContain("review_only = true");
+  });
+
+  it("omits agent files in none mode", async () => {
+    const root = await makeRoot();
+    const targetDirectory = path.join(root, "platform");
+    const plan = await planCreate({
+      name: "platform", projectType: "monorepo", targetDirectory,
+      registryRoot: path.resolve("registry"), preset: "recommended-monorepo",
+      stack: {}, capabilities: [], agentMode: "none"
+    });
+    await applyCreatePlan(plan, { run: async () => undefined });
+    expect(plan.config.agents).toEqual({ mode: "none", enabled: [], adapters: [] });
+    expect(existsSync(path.join(targetDirectory, "AGENTS.md"))).toBe(false);
+  });
+
   it("resolves a project type from the registry and returns a no-write plan", async () => {
     const root = await makeRoot();
     const registryRoot = path.join(root, "registry");

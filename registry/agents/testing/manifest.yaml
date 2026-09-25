@@ -1,0 +1,15 @@
+schemaVersion: 1
+id: testing
+kind: agent
+version: 1.0.0
+displayName: Testing Agent
+description: Owns focused tests and verification.
+compatibility: { projectTypes: [web, api, monorepo] }
+agent:
+  expertise: [testing, verification]
+  intents: [test, bugfix]
+  signals: [test, coverage, regression]
+  owns: [tests]
+  commands: [pnpm test]
+  commandsByProjectType: { web: [pnpm build], api: [pnpm build], monorepo: [pnpm test] }
+  instructions: Write focused tests and report exact verification results.

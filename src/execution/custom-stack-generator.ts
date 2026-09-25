@@ -54,11 +54,6 @@ export const generateCustomStack = async (root: string, config: RepoConfig, runn
       "packages/shared/package.json": JSON.stringify({ name: `@${config.project.name}/shared`, private: true, type: "module", exports: "./dist/index.js", types: "./dist/index.d.ts", scripts: { build: "tsc" }, devDependencies: { typescript: "^5.9.3" } }, null, 2),
       "packages/shared/tsconfig.json": JSON.stringify({ compilerOptions: { target: "ES2022", module: "NodeNext", moduleResolution: "NodeNext", strict: true, declaration: true, rootDir: "src", outDir: "dist", skipLibCheck: true }, include: ["src"] }),
       "packages/shared/src/index.ts": "export interface HealthResponse { status: string; }\n",
-      "AGENTS.md": "# Workspace ownership\n\nFrontend: apps/web. Backend: apps/api. Shared contracts: packages/shared.\nRead the matching role file in agents/ before changing a workspace.\n",
-      "agents/frontend.toml": `id = "frontend"\nrole = "frontend"\nowns = ["apps/web"]\ninstructions = "Maintain ${frontend} and Vite; run pnpm --filter ./apps/web build."\n`,
-      "agents/backend.toml": `id = "backend"\nrole = "backend"\nowns = ["apps/api"]\ninstructions = "Maintain ${backend} and ${orm}; preserve GET /health and authentication routes."\n`,
-      "agents/shared.toml": 'id = "shared"\nrole = "shared"\nowns = ["packages/shared"]\ninstructions = "Keep exported contracts compatible."\n',
-      "agents/reviewer.toml": 'id = "reviewer"\nrole = "reviewer"\nreview_only = true\ninstructions = "Review changes and validation without modifying source."\n'
     });
   }
   if (hasWeb) await writeFiles(monorepo ? path.join(root, "apps/web") : root, authentication === undefined

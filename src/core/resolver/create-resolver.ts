@@ -3,6 +3,7 @@ import { RepositoryStandardError } from "../errors.js";
 import type { Registry } from "../registry/registry-loader.js";
 import type { Diagnostic } from "../validation/validation.js";
 import { resolveCapabilities, type CapabilitySelection } from "./capability-resolver.js";
+import { resolveAgents, type AgentResolution } from "./agent-resolver.js";
 import type { SelectedExtension, UnresolvedSelection } from "./contracts.js";
 
 export type CreateAuthenticationProvider = string;
@@ -14,6 +15,7 @@ export interface CreateResolutionInput {
   readonly stack: Readonly<Record<string, string>>;
   readonly capabilities: readonly { readonly id: string; readonly version: string; readonly configRef?: string }[];
   readonly agentMode: RepoConfig["agents"]["mode"];
+  readonly agents?: readonly string[];
   readonly authentication?: CreateAuthenticationProvider;
   readonly registry: Registry;
 }
@@ -23,9 +25,9 @@ export interface CreateResolutionPlan {
   readonly selected: readonly SelectedExtension[];
   readonly unresolved: readonly UnresolvedSelection[];
   readonly diagnostics: readonly Diagnostic[];
+  readonly agentResolution: AgentResolution;
 }
 
-const monorepoAgentIds = ["frontend@1.0.0", "backend@1.0.0", "shared@1.0.0", "reviewer@1.0.0"] as const;
 const authenticationCapabilityPrefix = "auth-";
 
 const selectionId = (selection: string | CapabilitySelection): string =>
@@ -81,6 +83,22 @@ export const resolveCreateComposition = (input: CreateResolutionInput): CreateRe
   }
   const authenticationCapability = authenticationCapabilities[0];
   const authentication = authenticationCapability?.id.slice(authenticationCapabilityPrefix.length);
+  const agentResolution = resolveAgents({
+    registry: input.registry,
+    projectType: input.projectType,
+    mode: input.agentMode,
+    ...(input.agents === undefined ? {} : { selected: input.agents }),
+    capabilities: capabilityResolution.capabilities.map((capability) => capability.id)
+  });
+  const adapterIds = agentResolution.enabled.length === 0 ? [] : projectType.selection?.adapters ?? [];
+  if (agentResolution.enabled.length > 0 && adapterIds.length === 0) {
+    throw new RepositoryStandardError("CONFIG_INVALID", `Project type "${input.projectType}" has no agent adapter.`);
+  }
+  const adapters = adapterIds.map((id) => {
+    const adapter = input.registry.get("adapter", id);
+    if (adapter === undefined) throw new RepositoryStandardError("CONFIG_INVALID", `Agent adapter "${id}" is not available.`);
+    return adapter;
+  });
 
   const candidate = {
     schemaVersion: 1 as const,
@@ -92,9 +110,11 @@ export const resolveCreateComposition = (input: CreateResolutionInput): CreateRe
       ...(authentication === undefined ? {} : { authentication }),
       capabilities: capabilityResolution.capabilities
     },
-    agents: input.projectType === "monorepo"
-      ? { mode: input.agentMode, enabled: [...monorepoAgentIds], adapters: ["codex"] }
-      : { mode: input.agentMode, enabled: [], adapters: [] },
+    agents: {
+      mode: input.agentMode,
+      enabled: agentResolution.enabled.map((agent) => `${agent.id}@${agent.version}`),
+      adapters: adapters.map((adapter) => adapter.id)
+    },
     flows: { defaults: [] },
     standards: { overrides: [] },
     managed: { stateFile: ".repo-standard/managed-state.yaml" }
@@ -112,6 +132,7 @@ export const resolveCreateComposition = (input: CreateResolutionInput): CreateRe
   ];
   if (preset !== undefined) selected.push({ kind: preset.kind, id: preset.id, version: preset.version });
   selected.push(...capabilityResolution.selected);
+  selected.push(...adapters.map((adapter) => ({ kind: adapter.kind, id: adapter.id, version: adapter.version })));
 
-  return { config, selected, unresolved: [], diagnostics: [] };
+  return { config, selected, unresolved: [], diagnostics: [], agentResolution };
 };
