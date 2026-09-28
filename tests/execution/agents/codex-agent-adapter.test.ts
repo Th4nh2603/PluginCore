@@ -18,7 +18,12 @@ describe("renderCodexAgents", () => {
     try {
       const registry = await loadRegistry("registry");
       const selection = resolveAgents({ registry, projectType: "monorepo", mode: "custom", selected: ["backend", "reviewer"] });
-      await renderCodexAgents(root, selection);
+      const result = await renderCodexAgents(root, selection);
+      expect(result.ownership).toEqual([
+        { path: "AGENTS.md", owner: "adapter:codex" },
+        { path: "agents/backend.toml", owner: "agent:backend", version: selection.enabled.find((agent) => agent.id === "backend")?.version },
+        { path: "agents/reviewer.toml", owner: "agent:reviewer", version: selection.enabled.find((agent) => agent.id === "reviewer")?.version }
+      ]);
 
       expect(await readFile(path.join(root, "AGENTS.md"), "utf8")).toContain("agents/backend.toml");
       expect(await readFile(path.join(root, "agents/reviewer.toml"), "utf8")).toContain("review_only = true");

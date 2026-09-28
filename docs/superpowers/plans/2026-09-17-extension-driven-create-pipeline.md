@@ -120,7 +120,7 @@
 
 ### Task 5: Resolve and render agents through an adapter
 
-**Status:** Complete. The wider Phase 5 agent system also includes the built-in role catalog, all four modes, interactive and flag-driven selection, task-context explanations through `repo agents explain`, and project-specific Codex role files. Task 6 is next for this plan.
+**Status:** Complete. The wider Phase 5 agent system also includes the built-in role catalog, all four modes, interactive and flag-driven selection, task-context explanations through `repo agents explain`, and project-specific Codex role files.
 
 **Files:**
 - Create: `src/core/resolver/agent-resolver.ts`
@@ -145,6 +145,8 @@
 
 ### Task 6: Track managed files and align documentation
 
+**Status:** Complete on `feat/phase4-closeout`. Executor records owner, version, and SHA-256 for generated files; final verification checks every recorded file. The create boundary rejects capabilities without generators before writing a target. The historical checkboxes in Tasks 1–3 were not maintained, although their resolver, planner, generator modules, commits, and tests exist; this closeout verified their current behavior without rewriting that execution history.
+
 **Files:**
 - Modify: `src/application/project-state.ts`
 - Modify: execution handlers to report managed outputs
@@ -156,21 +158,21 @@
 - Execution results report `{ path, owner, version?, hash }` for managed files.
 - Managed state records all files created/owned by the pipeline after successful verification.
 
-- [ ] **Step 1: Write failing managed-state tests** for multiple files, ownership, and hashes.
-- [ ] **Step 2: Write failing architecture regression test** that generic Core/Application files no longer contain implementation branching for extracted provider/framework concerns.
-- [ ] **Step 3: Run focused tests and verify RED.**
-- [ ] **Step 4: Extend managed-state writer and propagate managed-file results through execution.**
-- [ ] **Step 5: Update README to describe the implemented CLI and extension-driven architecture.**
-- [ ] **Step 6: Run `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `pnpm build`.**
-- [ ] **Step 7: Review diff for generated-source bodies remaining in `create-service.ts`; remove only code covered by this spec.**
-- [ ] **Step 8: Commit** `docs: align extension-driven create architecture`.
+- [x] **Step 1: Write failing managed-state tests** for multiple files, ownership, and hashes.
+- [x] **Step 2: Write failing architecture regression test** that generic Core/Application files no longer contain implementation branching for extracted provider/framework concerns.
+- [x] **Step 3: Run focused tests and verify RED.**
+- [x] **Step 4: Extend managed-state writer and propagate managed-file results through execution.**
+- [x] **Step 5: Update README to describe the implemented CLI and extension-driven architecture.**
+- [x] **Step 6: Run `pnpm lint`, `pnpm typecheck`, `pnpm test`, and `pnpm build`.**
+- [x] **Step 7: Review diff for generated-source bodies remaining in `create-service.ts`; remove only code covered by this spec.**
+- [x] **Step 8: Commit** Phase 4 create-pipeline closeout.
 
 ## Final verification
 
-- [ ] `pnpm lint`
-- [ ] `pnpm typecheck`
-- [ ] `pnpm test`
-- [ ] `pnpm build`
-- [ ] Create a temporary monorepo with custom auth and verify generated config parses.
-- [ ] Create a temporary monorepo with Clerk auth and verify generated config parses.
-- [ ] Compare branch against `main` and confirm no unrelated changes.
+- [x] `pnpm lint`
+- [x] `pnpm typecheck`
+- [x] `pnpm test` (171 tests)
+- [x] `pnpm build`
+- [x] Create a temporary monorepo with custom auth and verify generated config parses (33 managed files).
+- [x] Create a temporary monorepo with Clerk auth and verify generated config parses (31 managed files).
+- [x] Compare branch against `main` and confirm no unrelated changes.

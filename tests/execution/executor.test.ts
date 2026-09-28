@@ -24,11 +24,62 @@ const makePlan = async (): Promise<ExecutionPlan> => {
 afterEach(async () => { await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true }))); });
 
 describe("executePlan", () => {
+  it("uses a generator's explicit owner for a reported file", async () => {
+    const plan = await makePlan();
+    const captured: unknown[] = [];
+    await executePlan({ ...plan, operations: [plan.operations[0]!, { type: "record-state", targetDirectory: plan.targetDirectory }] }, {
+      generate: async () => {
+        await writeFile(path.join(plan.targetDirectory, "role.toml"), "role");
+        return { files: ["role.toml"], ownership: [{ path: "role.toml", owner: "agent:backend", version: "1.0.0" }] };
+      },
+      writeConfig: async () => undefined,
+      verify: async () => undefined,
+      recordState: async (_operation, files) => { captured.push(...files); }
+    });
+    expect(captured).toEqual([{ path: "role.toml", owner: "agent:backend", version: "1.0.0", hash: expect.stringMatching(/^[a-f0-9]{64}$/u) }]);
+  });
+  it("rejects ownership metadata for an unreported file and rolls back", async () => {
+    const plan = await makePlan();
+    await expect(executePlan(plan, {
+      generate: async () => ({ files: [], ownership: [{ path: "ghost.toml", owner: "agent:backend" }] }),
+      writeConfig: async () => undefined,
+      verify: async () => undefined,
+      recordState: async () => undefined
+    })).rejects.toThrow("Generated owner has no reported output: ghost.toml.");
+    expect(existsSync(plan.targetDirectory)).toBe(false);
+  });
+  it("reports the last operation that actually changed each file", async () => {
+    const plan = await makePlan();
+    const targetDirectory = plan.targetDirectory;
+    const operations: ExecutionPlan["operations"] = [
+      { type: "generate", extension: { kind: "project-type", id: "web", version: "1.0.0" }, targetDirectory },
+      { type: "generate", extension: { kind: "capability", id: "auth-custom", version: "2.0.0" }, targetDirectory },
+      { type: "record-state", targetDirectory }
+    ];
+    const captured: unknown[] = [];
+    await executePlan({ ...plan, operations }, {
+      generate: async (operation) => {
+        await writeFile(path.join(targetDirectory, "shared.txt"), operation.extension.kind === "capability" ? "changed" : "initial");
+        if (operation.extension.kind === "project-type") await writeFile(path.join(targetDirectory, "base.txt"), "base");
+        return { files: operation.extension.kind === "capability" ? ["base.txt", "shared.txt"] : ["base.txt", "shared.txt"] };
+      },
+      writeConfig: async () => undefined,
+      verify: async () => undefined,
+      recordState: async (_operation, files) => { captured.push(...files); }
+    });
+    expect(captured).toEqual([
+      { path: "base.txt", owner: "project-type:web", version: "1.0.0", hash: expect.stringMatching(/^[a-f0-9]{64}$/u) },
+      { path: "shared.txt", owner: "capability:auth-custom", version: "2.0.0", hash: expect.stringMatching(/^[a-f0-9]{64}$/u) }
+    ]);
+  });
   it("forwards generated files and both verification phases", async () => {
     const plan = await makePlan();
     const phases: string[] = [];
     await executePlan(plan, {
-      generate: async () => ({ files: ["generated.txt"] }),
+      generate: async () => {
+        await writeFile(path.join(plan.targetDirectory, "generated.txt"), "generated");
+        return { files: ["generated.txt"] };
+      },
       writeConfig: async () => undefined,
       verify: async (operation, files) => { phases.push(operation.phase + ":" + files.join(",")); },
       recordState: async () => undefined

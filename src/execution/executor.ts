@@ -7,16 +7,18 @@ import type {
   ExecutionPlan,
   GenerateOperation,
   GenerationResult,
+  ManagedFile,
   RecordStateOperation,
   VerifyOperation,
   WriteConfigOperation
 } from "../core/planning/execution-plan.js";
+import { hashManagedFile } from "./managed-files.js";
 
 export interface ExecutionHandlers {
   readonly generate: (operation: GenerateOperation) => Promise<GenerationResult>;
   readonly writeConfig: (operation: WriteConfigOperation) => Promise<void>;
-  readonly verify: (operation: VerifyOperation, generatedFiles: readonly string[]) => Promise<void>;
-  readonly recordState: (operation: RecordStateOperation) => Promise<void>;
+  readonly verify: (operation: VerifyOperation, generatedFiles: readonly string[], managedFiles: readonly ManagedFile[]) => Promise<void>;
+  readonly recordState: (operation: RecordStateOperation, managedFiles: readonly ManagedFile[]) => Promise<void>;
   readonly removeTarget?: (targetDirectory: string) => Promise<void>;
 }
 
@@ -35,23 +37,58 @@ export const executePlan = async (plan: ExecutionPlan, handlers: ExecutionHandle
   }
 
   const generatedFiles = new Set<string>();
+  const managedFiles = new Map<string, ManagedFile>();
   try {
     for (const operation of plan.operations) {
       switch (operation.type) {
         case "generate": {
           const result = await handlers.generate(operation);
-          for (const file of result.files) generatedFiles.add(file);
+          const reported = new Set<string>();
+          const ownership = new Map<string, { owner: string; version?: string }>();
+          for (const entry of result.ownership ?? []) {
+            if (ownership.has(entry.path) || entry.owner.trim().length === 0 || (entry.version !== undefined && entry.version.trim().length === 0)) {
+              throw new RepositoryStandardError("CONFIG_INVALID", `Invalid or duplicate generated owner: ${entry.path}.`);
+            }
+            ownership.set(entry.path, entry);
+          }
+          for (const file of result.files) {
+            if (reported.has(file) || file === "repo.config.yaml") {
+              throw new RepositoryStandardError("CONFIG_INVALID", `Invalid or duplicate generated output: ${file}.`);
+            }
+            reported.add(file);
+            const hash = await hashManagedFile(targetDirectory, file);
+            const prior = managedFiles.get(file);
+            if (prior === undefined || prior.hash !== hash) {
+              const specified = ownership.get(file);
+              managedFiles.set(file, {
+                path: file,
+                owner: specified?.owner ?? `${operation.extension.kind}:${operation.extension.id}`,
+                version: specified?.version ?? operation.extension.version,
+                hash
+              });
+            }
+            generatedFiles.add(file);
+          }
+          for (const file of ownership.keys()) {
+            if (!reported.has(file)) throw new RepositoryStandardError("CONFIG_INVALID", `Generated owner has no reported output: ${file}.`);
+          }
           break;
         }
         case "write-config":
           await handlers.writeConfig(operation);
           break;
         case "verify":
-          await handlers.verify(operation, [...generatedFiles]);
+          await handlers.verify(operation, [...generatedFiles], [...managedFiles.values()]);
           break;
-        case "record-state":
-          await handlers.recordState(operation);
+        case "record-state": {
+          for (const file of managedFiles.values()) {
+            if (await hashManagedFile(targetDirectory, file.path) !== file.hash) {
+              throw new RepositoryStandardError("CONFIG_INVALID", `Managed output changed without being reported: ${file.path}.`);
+            }
+          }
+          await handlers.recordState(operation, [...managedFiles.values()]);
           break;
+        }
       }
     }
   } catch (error) {

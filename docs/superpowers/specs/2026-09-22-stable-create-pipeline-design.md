@@ -72,6 +72,8 @@ After writing `.repo-standard/managed-state.yaml`, the verifier must confirm tha
 
 Generator-reported files are verification inputs only in this change. Expanding the persisted managed-state schema to record every generated file is deferred.
 
+The later create-pipeline Task 6 implements that deferred managed-file inventory, including owner, extension version, and content hash for generated outputs.
+
 ## Failure and rollback behavior
 
 Failures in generation, configuration writing, either verification phase, or state writing trigger rollback when the pipeline owns the target. Rollback deletes only the normalized target directory that was validated as absent before execution.

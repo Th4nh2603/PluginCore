@@ -9,6 +9,20 @@ export interface GenerateOperation {
 
 export interface GenerationResult {
   readonly files: readonly string[];
+  readonly ownership?: readonly GeneratedFileOwner[];
+}
+
+export interface GeneratedFileOwner {
+  readonly path: string;
+  readonly owner: string;
+  readonly version?: string;
+}
+
+export interface ManagedFile {
+  readonly path: string;
+  readonly owner: string;
+  readonly version?: string;
+  readonly hash: string;
 }
 
 export type VerificationPhase = "generated" | "managed-state";

@@ -2,6 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { RepositoryStandardError } from "../../core/errors.js";
+import type { GenerationResult } from "../../core/planning/execution-plan.js";
 import type { AgentResolution, ResolvedAgent } from "../../core/resolver/agent-resolver.js";
 import type { AgentAdapter } from "./agent-adapter.js";
 
@@ -16,8 +17,8 @@ const roleFile = (agent: ResolvedAgent, projectType: string): string => {
   return `id = ${toml(agent.id)}\nrole = ${toml(agent.id)}\nowns = ${tomlArray(owns)}\ncommands = ${tomlArray(commands)}\nreview_only = ${definition.reviewOnly}\ninstructions = ${toml(definition.instructions)}\n`;
 };
 
-export const renderCodexAgents = async (targetDirectory: string, resolution: AgentResolution): Promise<readonly string[]> => {
-  if (resolution.enabled.length === 0) return [];
+export const renderCodexAgents = async (targetDirectory: string, resolution: AgentResolution): Promise<GenerationResult> => {
+  if (resolution.enabled.length === 0) return { files: [] };
 
   const files = resolution.enabled.map((agent) => {
     if (!/^[a-z0-9-]+$/u.test(agent.id)) throw new RepositoryStandardError("MANIFEST_INVALID", `Agent ID "${agent.id}" cannot be used as a role filename.`);
@@ -32,7 +33,13 @@ export const renderCodexAgents = async (targetDirectory: string, resolution: Age
     await mkdir(path.dirname(file), { recursive: true });
     await writeFile(file, content, "utf8");
   }
-  return files.map(({ relative }) => relative);
+  return {
+    files: files.map(({ relative }) => relative),
+    ownership: [
+      { path: "AGENTS.md", owner: "adapter:codex" },
+      ...resolution.enabled.map((agent) => ({ path: `agents/${agent.id}.toml`, owner: `agent:${agent.id}`, version: agent.version }))
+    ]
+  };
 };
 
 export const codexAgentAdapter: AgentAdapter = { id: "codex", render: renderCodexAgents };

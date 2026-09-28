@@ -1,4 +1,5 @@
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
 
@@ -33,6 +34,23 @@ afterEach(async () => {
 });
 
 describe("create verifier", () => {
+  it("checks every managed file hash and required ownership record", async () => {
+    const target = await makeTarget();
+    const configText = stringify(config);
+    await writeFile(path.join(target, "repo.config.yaml"), configText);
+    await writeFile(path.join(target, "generated.txt"), "original");
+    const generated = { path: "generated.txt", owner: "project-type:empty", version: "1.0.0",
+      hash: createHash("sha256").update("original").digest("hex") };
+    await mkdir(path.join(target, ".repo-standard"));
+    await writeFile(path.join(target, ".repo-standard", "managed-state.yaml"), stringify(createManagedState(configText, [generated])));
+
+    await expect(verifyManagedState(target, configText, [generated])).resolves.toBeUndefined();
+    await writeFile(path.join(target, "generated.txt"), "changed");
+    await expect(verifyManagedState(target, configText, [generated])).rejects.toMatchObject({ code: "CONFIG_INVALID" });
+    await writeFile(path.join(target, "generated.txt"), "original");
+    await writeFile(path.join(target, ".repo-standard", "managed-state.yaml"), stringify(createManagedState(configText)));
+    await expect(verifyManagedState(target, configText, [generated])).rejects.toMatchObject({ code: "CONFIG_INVALID" });
+  });
   it("validates reported generated files and repo config", async () => {
     const target = await makeTarget();
     await writeFile(path.join(target, "generated.txt"), "ok");

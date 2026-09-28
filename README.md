@@ -59,6 +59,12 @@ Custom monorepo có `apps/web`, `apps/api`, `packages/shared`. Với Custom auth
 
 Authentication của Monorepo được lưu trong `composition.capabilities` của `repo.config.yaml` dưới ID `auth-custom` hoặc `auth-clerk`. `--auth` và lựa chọn trong wizard cùng chọn capability này; `composition.authentication` vẫn được ghi để tương thích với cấu hình cũ. Khi tạo project, executor của capability được chọn sinh phần web/API và cấu hình xác thực. Một capability có manifest trong registry nhưng chưa có executor sẽ bị từ chối trước khi tạo thư mục đích.
 
+## Luồng tạo project và file được quản lý
+
+`repo create` phân giải lựa chọn từ registry thành cấu hình và execution plan trước khi ghi file. Executor lần lượt chạy generator của project type, capability và agent adapter, ghi `repo.config.yaml`, xác minh các file được báo cáo, ghi `.repo-standard/managed-state.yaml`, rồi xác minh state lần cuối. Nếu một bước thất bại sau khi CLI tạo thư mục đích, CLI xóa toàn bộ thư mục đó; thư mục đã tồn tại từ trước không bị xóa.
+
+Managed state ghi `path`, `owner`, `version` của extension (nếu có) và SHA-256 của từng file do pipeline tạo. File bị capability thay đổi được gán cho capability; `agents/<id>.toml` thuộc `agent:<id>`, còn `AGENTS.md` thuộc `adapter:codex`. `repo.config.yaml` thuộc `core`. CLI không ghi `node_modules`, `.git`, `dist`, `coverage` hoặc chính thư mục `.repo-standard` vào danh sách file được quản lý. State này là dữ liệu để phát hiện thay đổi về sau; lệnh cập nhật và xử lý xung đột thuộc Phase 8.
+
 Màu CLI: cyan cho tiêu đề, tím cho lựa chọn, xanh lá cho thành công, vàng cho cảnh báo. Đặt biến môi trường `NO_COLOR` để tắt màu; output được chuyển hướng mặc định không có màu.
 
 Tên project chỉ dùng chữ, số và dấu gạch ngang. Thư mục đích phải chưa tồn tại; mặc định là thư mục mang tên project trong thư mục hiện tại.

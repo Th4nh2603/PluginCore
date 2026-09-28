@@ -6,7 +6,9 @@ import { parse } from "yaml";
 
 import { loadRepoConfig, type RepoConfig } from "../core/config/repo-config.js";
 import { RepositoryStandardError } from "../core/errors.js";
+import type { ManagedFile } from "../core/planning/execution-plan.js";
 import { resolveProjectPath } from "../core/security/project-path.js";
+import { hashManagedFile } from "./managed-files.js";
 
 const statePath = ".repo-standard/managed-state.yaml";
 
@@ -42,7 +44,11 @@ export const verifyGeneratedRepository = async (targetDirectory: string, files: 
   return loadRepoConfig(targetDirectory);
 };
 
-export const verifyManagedState = async (targetDirectory: string, configText: string): Promise<void> => {
+export const verifyManagedState = async (
+  targetDirectory: string,
+  configText: string,
+  expectedFiles?: readonly ManagedFile[]
+): Promise<void> => {
   const targetStatePath = path.join(targetDirectory, statePath);
   let state: unknown;
   try {
@@ -54,15 +60,39 @@ export const verifyManagedState = async (targetDirectory: string, configText: st
   if (typeof state !== "object" || state === null || Array.isArray(state)) {
     throw invalid("Managed state must be an object.");
   }
-  const files = (state as Record<string, unknown>).files;
-  const first = Array.isArray(files) ? files[0] : undefined;
-  if (typeof first !== "object" || first === null || Array.isArray(first)) {
-    throw invalid("Managed state must record repo.config.yaml.");
+  const stateRecord = state as Record<string, unknown>;
+  const files = stateRecord.files;
+  if (stateRecord.schemaVersion !== 1 || typeof stateRecord.pluginVersion !== "string" || !Array.isArray(files)) {
+    throw invalid("Managed state has an invalid structure.");
   }
-
-  const entry = first as Record<string, unknown>;
+  const expected = expectedFiles === undefined ? undefined : new Map(expectedFiles.map((file) => [file.path, file]));
+  const seen = new Set<string>();
   const expectedHash = createHash("sha256").update(configText).digest("hex");
-  if (entry.path !== "repo.config.yaml" || entry.hash !== expectedHash) {
-    throw invalid("Managed state does not match repo.config.yaml.");
+  for (const raw of files) {
+    if (typeof raw !== "object" || raw === null || Array.isArray(raw)) throw invalid("Managed state contains an invalid file record.");
+    const entry = raw as Record<string, unknown>;
+    if (typeof entry.path !== "string" || typeof entry.owner !== "string" || entry.owner.length === 0 ||
+      typeof entry.hash !== "string" || !/^[a-f0-9]{64}$/u.test(entry.hash) ||
+      (entry.version !== undefined && (typeof entry.version !== "string" || entry.version.length === 0)) ||
+      seen.has(entry.path)) {
+      throw invalid("Managed state contains an invalid or duplicate file record.");
+    }
+    seen.add(entry.path);
+    if (entry.path === "repo.config.yaml") {
+      if (entry.owner !== "core" || entry.version !== undefined || entry.hash !== expectedHash) {
+        throw invalid("Managed state does not match repo.config.yaml.");
+      }
+    } else if (expected !== undefined) {
+      const match = expected.get(entry.path);
+      if (match === undefined || match.owner !== entry.owner || match.version !== entry.version || match.hash !== entry.hash) {
+        throw invalid(`Managed state does not match generated output: ${entry.path}.`);
+      }
+    }
+    if (await hashManagedFile(targetDirectory, entry.path) !== entry.hash) {
+      throw invalid(`Managed file hash does not match: ${entry.path}.`);
+    }
+  }
+  if (!seen.has("repo.config.yaml") || (expected !== undefined && seen.size !== expected.size + 1)) {
+    throw invalid("Managed state is missing required file records.");
   }
 };

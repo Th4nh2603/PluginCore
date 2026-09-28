@@ -1,7 +1,8 @@
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { parse } from "yaml";
 
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -173,6 +174,14 @@ describe("planCreate", () => {
     expect(webStyles).toContain("prefers-reduced-motion");
     expect(await readFile(path.join(targetDirectory, "AGENTS.md"), "utf8")).toContain("agents/frontend.toml");
     expect(await readFile(path.join(targetDirectory, "agents", "reviewer.toml"), "utf8")).toContain("review_only = true");
+    const state = parse(await readFile(path.join(targetDirectory, ".repo-standard", "managed-state.yaml"), "utf8")) as {
+      files: { path: string; owner: string; version?: string; hash: string }[];
+    };
+    expect(state.files.find((file) => file.path === "repo.config.yaml")?.owner).toBe("core");
+    expect(state.files.find((file) => file.path === "apps/api/src/auth/password.ts")?.owner).toBe("capability:auth-custom");
+    expect(state.files.find((file) => file.path === "agents/backend.toml")?.owner).toBe("agent:backend");
+    expect(state.files.find((file) => file.path === "AGENTS.md")?.owner).toBe("adapter:codex");
+    expect(state.files.every((file) => /^[a-f0-9]{64}$/u.test(file.hash))).toBe(true);
     expect(JSON.parse(await readFile(path.join(targetDirectory, "package.json"), "utf8")).packageManager).toBeUndefined();
     expect(await readFile(path.join(targetDirectory, "apps", "api", "src", "server.ts"), "utf8")).toContain("express");
     expect(await readFile(path.join(targetDirectory, "packages", "shared", "src", "index.ts"), "utf8")).toContain("export");
@@ -194,6 +203,20 @@ describe("planCreate", () => {
 
     await expect(planCreate({ name: "platform", projectType: "monorepo", targetDirectory: path.join(root, "platform"), registryRoot: path.join(process.cwd(), "registry"), preset: "recommended-monorepo", stack: {}, agentMode: "automatic", capabilities: [], authentication: "firebase" }))
       .rejects.toThrow('Capability "auth-firebase" is not available.');
+  });
+
+  it("rejects a registered capability without a generator before creating files", async () => {
+    const root = await makeRoot();
+    const registryRoot = path.join(root, "registry");
+    await cp("registry", registryRoot, { recursive: true });
+    await mkdir(path.join(registryRoot, "capabilities", "observability"));
+    await writeFile(path.join(registryRoot, "capabilities", "observability", "manifest.yaml"),
+      "schemaVersion: 1\nid: observability\nkind: capability\nversion: 1.0.0\ndisplayName: Observability\ncompatibility: { projectTypes: [web] }\n");
+    const targetDirectory = path.join(root, "demo");
+    await expect(planCreate({ name: "demo", projectType: "web", targetDirectory, registryRoot,
+      preset: "recommended-web", stack: {}, capabilities: [{ id: "observability", version: "1.0.0" }], agentMode: "automatic" }))
+      .rejects.toThrow('No capability generator is available for "observability".');
+    expect(existsSync(targetDirectory)).toBe(false);
   });
 
   it("generates a Clerk authentication scaffold when selected", async () => {

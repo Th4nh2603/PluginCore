@@ -15,7 +15,8 @@ import { verifyGeneratedRepository, verifyManagedState } from "../execution/crea
 import { createManagedState, writeYamlAtomically } from "../execution/project-state.js";
 import { generateCreateScaffold } from "../execution/legacy-create-generator.js";
 import { selectGenerationStrategy } from "../execution/generation-contract.js";
-import { generateAuthenticationCapability, selectAuthenticationExecutor } from "../execution/capabilities/authentication.js";
+import { selectAuthenticationExecutor } from "../execution/capabilities/authentication.js";
+import { selectCapabilityGenerator } from "../execution/capabilities/capability-generator.js";
 import { selectAgentAdapter } from "../execution/agents/adapters.js";
 import type { AgentResolution } from "../core/resolver/agent-resolver.js";
 import { stringify } from "yaml";
@@ -71,6 +72,9 @@ export const planCreate = async (input: CreateInput): Promise<CreatePlan> => {
   });
   selectGenerationStrategy(resolution.config);
   selectAuthenticationExecutor(resolution.config);
+  for (const operation of resolution.selected) {
+    if (operation.kind === "capability") selectCapabilityGenerator(operation.id);
+  }
   for (const id of resolution.config.agents.adapters) selectAgentAdapter(id);
   const executionPlan = planCreateExecution({ resolution, targetDirectory });
 
@@ -93,25 +97,25 @@ export const applyCreatePlan = async (plan: CreatePlan, runner: GeneratorRunner 
       if (operation.extension.kind === "project-type") {
         return generateCreateScaffold(operation.targetDirectory, plan.config, runner, true);
       }
-      if (operation.extension.kind === "capability" && operation.extension.id.startsWith("auth-")) {
-        return generateAuthenticationCapability(operation.targetDirectory, plan.config, operation.extension.id, runner);
+      if (operation.extension.kind === "capability") {
+        return selectCapabilityGenerator(operation.extension.id)(operation.targetDirectory, plan.config, operation.extension.id, runner);
       }
       if (operation.extension.kind === "adapter") {
-        return { files: await selectAgentAdapter(operation.extension.id).render(operation.targetDirectory, plan.agentResolution) };
+        return selectAgentAdapter(operation.extension.id).render(operation.targetDirectory, plan.agentResolution);
       }
       return { files: [] };
     },
     writeConfig: async (operation) => writeYamlAtomically(path.join(operation.targetDirectory, "repo.config.yaml"), operation.config),
-    verify: async (operation, generatedFiles) => {
+    verify: async (operation, generatedFiles, managedFiles) => {
       if (operation.phase === "generated") {
         await verifyGeneratedRepository(operation.targetDirectory, generatedFiles);
         return;
       }
-      await verifyManagedState(operation.targetDirectory, configText);
+      await verifyManagedState(operation.targetDirectory, configText, managedFiles);
     },
-    recordState: async (operation) => writeYamlAtomically(
+    recordState: async (operation, managedFiles) => writeYamlAtomically(
       path.join(operation.targetDirectory, ".repo-standard", "managed-state.yaml"),
-      createManagedState(configText)
+      createManagedState(configText, managedFiles)
     )
   });
 };

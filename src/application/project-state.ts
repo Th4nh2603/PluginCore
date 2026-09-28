@@ -4,6 +4,14 @@ import path from "node:path";
 
 import { stringify } from "yaml";
 
+import type { ManagedFile } from "../core/planning/execution-plan.js";
+
+export interface ManagedState {
+  readonly schemaVersion: 1;
+  readonly pluginVersion: string;
+  readonly files: readonly ManagedFile[];
+}
+
 export const writeYamlAtomically = async (filePath: string, value: unknown): Promise<void> => {
   await mkdir(path.dirname(filePath), { recursive: true });
   const temporaryPath = `${filePath}.${process.pid}.tmp`;
@@ -11,8 +19,11 @@ export const writeYamlAtomically = async (filePath: string, value: unknown): Pro
   await rename(temporaryPath, filePath);
 };
 
-export const createManagedState = (configText: string): Record<string, unknown> => ({
+export const createManagedState = (configText: string, generatedFiles: readonly ManagedFile[] = []): ManagedState => ({
   schemaVersion: 1,
   pluginVersion: "0.1.0",
-  files: [{ path: "repo.config.yaml", hash: createHash("sha256").update(configText).digest("hex") }]
+  files: [
+    { path: "repo.config.yaml", owner: "core", hash: createHash("sha256").update(configText).digest("hex") },
+    ...generatedFiles
+  ]
 });
