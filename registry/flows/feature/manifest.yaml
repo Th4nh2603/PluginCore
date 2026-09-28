@@ -5,6 +5,7 @@ version: 1.0.0
 displayName: Feature
 flow:
   intents: [feature, refactor, test, security, git, release]
+  inputs: [task]
   steps:
     - { id: scope, inputs: [task], outcome: acceptance-criteria, expertise: [] }
     - { id: implement, inputs: [acceptance-criteria], outcome: proposed-change, expertise: [] }

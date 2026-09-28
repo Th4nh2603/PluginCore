@@ -5,6 +5,7 @@ version: 1.0.0
 displayName: Review
 flow:
   intents: [review]
+  inputs: [task, change]
   steps:
     - { id: inspect, inputs: [task, change], outcome: findings, expertise: [review] }
     - { id: report, inputs: [findings], outcome: review-report, expertise: [review], gates: [review] }

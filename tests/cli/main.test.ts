@@ -74,6 +74,12 @@ describe("runCli", () => {
       expect(output.join("\n")).toContain("Step: review");
       expect(output.join("\n")).toContain("explicit selection");
       expect(output.join("\n")).not.toContain("Step: implement");
+      const agentOutput: string[] = [];
+      expect(await runCli(["agents", "explain", "--root", targetDirectory, "--flow", "design", "--target", "apps/web/src/App.tsx"], {
+        write: (line) => agentOutput.push(line)
+      })).toBe(0);
+      expect(agentOutput.join("\n")).toContain("architect: Required by the selected flow.");
+      expect(agentOutput.join("\n")).not.toContain("frontend:");
       await expect(runCli(["flows", "explain", "--root", targetDirectory, "--flow", "missing"], {
         write: () => undefined
       })).rejects.toThrow('Flow "missing" is not available.');

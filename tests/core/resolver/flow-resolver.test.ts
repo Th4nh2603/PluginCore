@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { loadRegistry } from "../../../src/core/registry/registry-loader.js";
+import { loadRegistry, Registry } from "../../../src/core/registry/registry-loader.js";
 import { resolveFlow } from "../../../src/core/resolver/flow-resolver.js";
 
 const registry = await loadRegistry("registry");
@@ -33,5 +33,23 @@ describe("resolveFlow", () => {
     expect(() => resolveFlow({ registry, projectType: "api", defaults, selected: "missing" })).toThrow('Flow "missing" is not available.');
     expect(() => resolveFlow({ registry, projectType: "api", defaults: ["review"], intent: "bugfix" }))
       .toThrow('No configured flow handles intent "bugfix".');
+  });
+
+  it("rejects a step whose input was removed by a conditional step", () => {
+    const conditional = new Registry([
+      { schemaVersion: 1, id: "api", kind: "project-type", version: "1.0.0", displayName: "API" },
+      { schemaVersion: 1, id: "custom", kind: "flow", version: "1.0.0", displayName: "Custom", flow: {
+        intents: ["feature"],
+        inputs: ["task"],
+        steps: [
+          { id: "optional-check", inputs: ["task"], outcome: "proof", expertise: [], gates: [], condition: "policy.requiresReview" },
+          { id: "consume", inputs: ["proof"], outcome: "result", expertise: [], gates: [] }
+        ]
+      } }
+    ]);
+    expect(() => resolveFlow({ registry: conditional, projectType: "api", defaults: ["custom"] }))
+      .toThrow('Step "consume" requires unavailable input "proof".');
+    expect(resolveFlow({ registry: conditional, projectType: "api", defaults: ["custom"], requiresReview: true }).steps)
+      .toHaveLength(2);
   });
 });

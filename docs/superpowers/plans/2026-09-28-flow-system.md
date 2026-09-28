@@ -1,6 +1,6 @@
 # Phase 6 implementation plan
 
-**Status:** Implemented on `feat/phase-6-flows`. Final checks: lint, typecheck, 174 tests, and build passed.
+**Status:** Implemented on `feat/phase-6-flows`. Final checks: lint, typecheck, 176 tests, and build passed.
 
 ## Task 1: Manifest contract and initial catalog
 

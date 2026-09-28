@@ -19,6 +19,7 @@ const semanticVersion = z.string().regex(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/, 
 
 const FlowSchema = z.object({
   intents: z.array(z.string().min(1)).min(1),
+  inputs: z.array(z.string().min(1)).min(1),
   steps: z.array(z.object({
     id: z.string().min(1),
     inputs: z.array(z.string().min(1)),
@@ -27,7 +28,18 @@ const FlowSchema = z.object({
     gates: z.array(z.enum(["verification", "review"])).default([]),
     condition: z.enum(["policy.requiresReview"]).optional()
   }).strict()).min(1)
-}).strict();
+}).strict().superRefine((flow, context) => {
+  const seen = new Set<string>();
+  const available = new Set(flow.inputs);
+  for (const [index, step] of flow.steps.entries()) {
+    if (seen.has(step.id)) context.addIssue({ code: "custom", message: `Duplicate flow step "${step.id}".`, path: ["steps", index, "id"] });
+    seen.add(step.id);
+    for (const input of step.inputs) {
+      if (!available.has(input)) context.addIssue({ code: "custom", message: `Input "${input}" has no earlier producer.`, path: ["steps", index, "inputs"] });
+    }
+    available.add(step.outcome);
+  }
+});
 
 export const ExtensionManifestSchema = z
   .object({
@@ -75,6 +87,11 @@ export const ExtensionManifestSchema = z
     }
     if (manifest.kind !== "flow" && manifest.flow !== undefined) {
       context.addIssue({ code: "custom", message: "Only flow manifests can define a flow.", path: ["flow"] });
+    }
+    if (manifest.kind === "flow" && manifest.compatibility?.projectTypes !== undefined &&
+      (!Array.isArray(manifest.compatibility.projectTypes) || manifest.compatibility.projectTypes.length === 0 ||
+        !manifest.compatibility.projectTypes.every((item) => typeof item === "string" && item.length > 0))) {
+      context.addIssue({ code: "custom", message: "Flow projectTypes must be a nonempty string array.", path: ["compatibility", "projectTypes"] });
     }
   });
 

@@ -56,6 +56,15 @@ export const resolveFlow = (input: FlowInput): FlowResolution => {
   const steps = definition.steps.filter((step) => step.condition !== "policy.requiresReview" || input.requiresReview === true);
   const omitted = definition.steps.filter((step) => !steps.includes(step))
     .map((step) => ({ id: step.id, reason: "Review policy is not required." }));
+  const available = new Set(definition.inputs);
+  for (const step of steps) {
+    for (const requiredInput of step.inputs) {
+      if (!available.has(requiredInput)) {
+        throw new RepositoryStandardError("CONFIG_INVALID", `Step "${step.id}" requires unavailable input "${requiredInput}".`);
+      }
+    }
+    available.add(step.outcome);
+  }
   const expertise = [...new Set(steps.flatMap((step) => step.expertise))];
   return {
     id: selected.id,

@@ -5,6 +5,7 @@ version: 1.0.0
 displayName: Bugfix
 flow:
   intents: [bugfix]
+  inputs: [task]
   steps:
     - { id: reproduce, inputs: [task], outcome: reproducible-case, expertise: [testing] }
     - { id: investigate, inputs: [reproducible-case], outcome: root-cause, expertise: [] }

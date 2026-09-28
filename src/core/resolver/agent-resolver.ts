@@ -72,12 +72,18 @@ const ownsTarget = (manifest: ExtensionManifest, task: AgentTaskContext, project
   (manifest.agent?.ownsByProjectType?.[projectType] ?? manifest.agent?.owns ?? [])
     .some((owned) => task.targetPaths.some((target) => target === owned || target.startsWith(`${owned}/`)));
 
+const mayAdvise = (manifest: ExtensionManifest, projectType: string): boolean =>
+  manifest.agent?.reviewOnly === true ||
+  ((manifest.agent?.ownsByProjectType?.[projectType] ?? manifest.agent?.owns ?? []).length === 0 &&
+    (manifest.agent?.commandsByProjectType?.[projectType] ?? manifest.agent?.commands ?? []).length === 0);
+
 export const resolveAgents = (input: AgentResolutionInput): AgentResolution => {
   const project = input.registry.get("project-type", input.projectType);
   if (project === undefined) throw new RepositoryStandardError("CONFIG_INVALID", `Project type "${input.projectType}" is not available.`);
 
   const selected = new Set(input.selected ?? []);
   const task = input.task === undefined ? undefined : { ...input.task, intent: inferIntent(input.task) };
+  const advisoryOnly = task?.intent === "design" || task?.intent === "review";
   const defaultIds = project.agentHints?.recommended ?? [];
   const requiredIds = new Set(project.agentHints?.required ?? []);
   const flowRequiredIds = new Set<string>();
@@ -106,14 +112,18 @@ export const resolveAgents = (input: AgentResolutionInput): AgentResolution => {
     : [...new Set([
         ...defaultIds.filter((id) => {
           const manifest = input.registry.get("agent", id);
-          return manifest !== undefined && (ownsTarget(manifest, task, input.projectType) || hasSignal(manifest, task));
+          return manifest !== undefined && (!advisoryOnly || mayAdvise(manifest, input.projectType)) &&
+            (ownsTarget(manifest, task, input.projectType) || hasSignal(manifest, task));
         }),
-        ...candidates.filter((manifest) => manifest.agent !== undefined && (
+        ...candidates.filter((manifest) => manifest.agent !== undefined && (!advisoryOnly || mayAdvise(manifest, input.projectType)) && (
           ownsTarget(manifest, task, input.projectType) || hasSignal(manifest, task) ||
           (manifest.agent.owns.length === 0 && manifest.agent.intents.includes(task.intent) && ["review", "design", "security"].includes(task.intent))
         )).map((manifest) => manifest.id),
         ...requiredIds,
-        ...selected
+        ...[...selected].filter((id) => {
+          const manifest = input.registry.get("agent", id);
+          return manifest === undefined || !advisoryOnly || mayAdvise(manifest, input.projectType);
+        })
       ])];
 
   if (task !== undefined) {

@@ -11,6 +11,7 @@ const validFlow = {
   displayName: "Bugfix",
   flow: {
     intents: ["bugfix"],
+    inputs: ["task"],
     steps: [{ id: "reproduce", inputs: ["task"], outcome: "reproducible-case", expertise: ["testing"] }]
   }
 };
@@ -41,5 +42,13 @@ describe("flow manifests", () => {
   it("requires flow definitions only on flow manifests", () => {
     expect(ExtensionManifestSchema.safeParse({ ...validFlow, flow: undefined }).success).toBe(false);
     expect(ExtensionManifestSchema.safeParse({ ...validFlow, kind: "agent" }).success).toBe(false);
+  });
+
+  it("rejects duplicate step IDs and malformed project type compatibility", () => {
+    expect(ExtensionManifestSchema.safeParse({
+      ...validFlow,
+      flow: { ...validFlow.flow, steps: [validFlow.flow.steps[0], validFlow.flow.steps[0]] }
+    }).success).toBe(false);
+    expect(ExtensionManifestSchema.safeParse({ ...validFlow, compatibility: { projectTypes: "web" } }).success).toBe(false);
   });
 });
