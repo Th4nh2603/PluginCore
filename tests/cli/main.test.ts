@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -30,6 +30,74 @@ const writeEmptyRegistry = async (registryRoot: string): Promise<void> => {
 };
 
 describe("runCli", () => {
+  it("explains a bugfix flow and includes its expertise in agent selection", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-flow-explain-"));
+    const targetDirectory = path.join(root, "platform");
+    const flowOutput: string[] = [];
+    const agentOutput: string[] = [];
+    try {
+      expect(await runCli(["create", "platform", "--type", "monorepo", "--target", targetDirectory, "--yes"], {
+        write: () => undefined,
+        generatorRunner: { run: async () => undefined }
+      })).toBe(0);
+      expect(await runCli(["flows", "explain", "--root", targetDirectory, "--text", "Fix broken login"], {
+        write: (line) => flowOutput.push(line)
+      })).toBe(0);
+      expect(flowOutput.join("\n")).toContain("Flow: bugfix");
+      expect(flowOutput.join("\n")).toContain("selected for bugfix");
+      expect(flowOutput.join("\n")).toContain("inputs: proposed-change");
+      expect(flowOutput.join("\n")).toContain("Step: regression-test");
+      expect(flowOutput.join("\n")).toContain("gate: verification");
+      expect(flowOutput.join("\n")).toContain("Skipped review: Review policy is not required.");
+
+      expect(await runCli(["agents", "explain", "--root", targetDirectory, "--text", "Fix broken login"], {
+        write: (line) => agentOutput.push(line)
+      })).toBe(0);
+      expect(agentOutput.join("\n")).toContain("testing: Required by the selected flow.");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("lets a caller select a design flow and require review without writing files", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-flow-policy-"));
+    const targetDirectory = path.join(root, "platform");
+    const output: string[] = [];
+    try {
+      expect(await runCli(["create", "platform", "--type", "monorepo", "--target", targetDirectory, "--yes"], {
+        write: () => undefined,
+        generatorRunner: { run: async () => undefined }
+      })).toBe(0);
+      expect(await runCli(["flows", "explain", "--root", targetDirectory, "--flow", "design", "--requires-review"], {
+        write: (line) => output.push(line)
+      })).toBe(0);
+      expect(output.join("\n")).toContain("Step: review");
+      expect(output.join("\n")).toContain("explicit selection");
+      expect(output.join("\n")).not.toContain("Step: implement");
+      const agentOutput: string[] = [];
+      expect(await runCli(["agents", "explain", "--root", targetDirectory, "--flow", "design", "--target", "apps/web/src/App.tsx"], {
+        write: (line) => agentOutput.push(line)
+      })).toBe(0);
+      expect(agentOutput.join("\n")).toContain("architect: Required by the selected flow.");
+      expect(agentOutput.join("\n")).not.toContain("frontend:");
+      const registryRoot = path.join(root, "registry");
+      await cp("registry", registryRoot, { recursive: true });
+      await mkdir(path.join(registryRoot, "flows", "design-lite"));
+      await writeFile(path.join(registryRoot, "flows", "design-lite", "manifest.yaml"),
+        "schemaVersion: 1\nid: design-lite\nkind: flow\nversion: 1.0.0\ndisplayName: Design Lite\nflow:\n  intents: [design]\n  inputs: [task]\n  steps:\n    - { id: propose, inputs: [task], outcome: proposal, expertise: [architecture] }\n");
+      agentOutput.length = 0;
+      expect(await runCli(["agents", "explain", "--root", targetDirectory, "--registry", registryRoot,
+        "--flow", "design-lite", "--target", "apps/web/src/App.tsx"], { write: (line) => agentOutput.push(line) })).toBe(0);
+      expect(agentOutput.join("\n")).not.toContain("frontend:");
+      expect(agentOutput.join("\n")).toContain("Intent: design");
+      await expect(runCli(["flows", "explain", "--root", targetDirectory, "--flow", "missing"], {
+        write: () => undefined
+      })).rejects.toThrow('Flow "missing" is not available.');
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("explains a task-specific agent selection from a generated project", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-agent-explain-"));
     const targetDirectory = path.join(root, "platform");

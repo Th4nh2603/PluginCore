@@ -1,0 +1,14 @@
+schemaVersion: 1
+id: bugfix
+kind: flow
+version: 1.0.0
+displayName: Bugfix
+flow:
+  intents: [bugfix]
+  inputs: [task]
+  steps:
+    - { id: reproduce, inputs: [task], outcome: reproducible-case, expertise: [testing] }
+    - { id: investigate, inputs: [reproducible-case], outcome: root-cause, expertise: [] }
+    - { id: fix, inputs: [root-cause], outcome: proposed-change, expertise: [] }
+    - { id: regression-test, inputs: [proposed-change], outcome: verification-result, expertise: [testing], gates: [verification] }
+    - { id: review, inputs: [verification-result], outcome: review-findings, expertise: [review], gates: [review], condition: policy.requiresReview }

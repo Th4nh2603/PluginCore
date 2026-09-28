@@ -16,6 +16,7 @@ export interface AgentResolutionInput {
   readonly mode: AgentMode;
   readonly selected?: readonly string[];
   readonly capabilities?: readonly string[];
+  readonly requiredExpertise?: readonly string[];
   readonly task?: AgentTaskContext;
 }
 
@@ -35,7 +36,7 @@ export interface AgentResolution {
   readonly taskIntent?: string;
 }
 
-const inferIntent = (task: AgentTaskContext): string => {
+export const inferIntent = (task: AgentTaskContext): string => {
   if (task.intent !== undefined) return task.intent;
   const text = task.text.toLowerCase();
   const terms: readonly [string, RegExp, number][] = [
@@ -71,14 +72,34 @@ const ownsTarget = (manifest: ExtensionManifest, task: AgentTaskContext, project
   (manifest.agent?.ownsByProjectType?.[projectType] ?? manifest.agent?.owns ?? [])
     .some((owned) => task.targetPaths.some((target) => target === owned || target.startsWith(`${owned}/`)));
 
+const mayAdvise = (manifest: ExtensionManifest, projectType: string): boolean =>
+  manifest.agent?.reviewOnly === true ||
+  ((manifest.agent?.ownsByProjectType?.[projectType] ?? manifest.agent?.owns ?? []).length === 0 &&
+    (manifest.agent?.commandsByProjectType?.[projectType] ?? manifest.agent?.commands ?? []).length === 0);
+
 export const resolveAgents = (input: AgentResolutionInput): AgentResolution => {
   const project = input.registry.get("project-type", input.projectType);
   if (project === undefined) throw new RepositoryStandardError("CONFIG_INVALID", `Project type "${input.projectType}" is not available.`);
 
   const selected = new Set(input.selected ?? []);
   const task = input.task === undefined ? undefined : { ...input.task, intent: inferIntent(input.task) };
+  const advisoryOnly = task?.intent === "design" || task?.intent === "review";
   const defaultIds = project.agentHints?.recommended ?? [];
   const requiredIds = new Set(project.agentHints?.required ?? []);
+  const flowRequiredIds = new Set<string>();
+  for (const expertise of input.requiredExpertise ?? []) {
+    const candidate = input.registry.list("agent").find((manifest) =>
+      isCompatible(manifest, input.projectType) && manifest.agent?.expertise.includes(expertise) &&
+      (expertise === "review" || manifest.agent.reviewOnly === false) &&
+      (manifest.id === expertise || manifest.id === `${expertise}er`)
+    ) ?? input.registry.list("agent").find((manifest) =>
+      isCompatible(manifest, input.projectType) && manifest.agent?.expertise.includes(expertise) &&
+      (expertise === "review" || manifest.agent.reviewOnly === false)
+    );
+    if (candidate === undefined) throw new RepositoryStandardError("CONFIG_INVALID", `No compatible agent covers flow expertise "${expertise}".`);
+    requiredIds.add(candidate.id);
+    flowRequiredIds.add(candidate.id);
+  }
   for (const capabilityId of input.capabilities ?? []) {
     const capability = input.registry.get("capability", capabilityId);
     if (capability === undefined) throw new RepositoryStandardError("CONFIG_INVALID", `Capability "${capabilityId}" is not available.`);
@@ -91,14 +112,18 @@ export const resolveAgents = (input: AgentResolutionInput): AgentResolution => {
     : [...new Set([
         ...defaultIds.filter((id) => {
           const manifest = input.registry.get("agent", id);
-          return manifest !== undefined && (ownsTarget(manifest, task, input.projectType) || hasSignal(manifest, task));
+          return manifest !== undefined && (!advisoryOnly || mayAdvise(manifest, input.projectType)) &&
+            (ownsTarget(manifest, task, input.projectType) || hasSignal(manifest, task));
         }),
-        ...candidates.filter((manifest) => manifest.agent !== undefined && (
+        ...candidates.filter((manifest) => manifest.agent !== undefined && (!advisoryOnly || mayAdvise(manifest, input.projectType)) && (
           ownsTarget(manifest, task, input.projectType) || hasSignal(manifest, task) ||
           (manifest.agent.owns.length === 0 && manifest.agent.intents.includes(task.intent) && ["review", "design", "security"].includes(task.intent))
         )).map((manifest) => manifest.id),
         ...requiredIds,
-        ...selected
+        ...[...selected].filter((id) => {
+          const manifest = input.registry.get("agent", id);
+          return manifest === undefined || !advisoryOnly || mayAdvise(manifest, input.projectType);
+        })
       ])];
 
   if (task !== undefined) {
@@ -112,11 +137,12 @@ export const resolveAgents = (input: AgentResolutionInput): AgentResolution => {
     const manifest = input.registry.get("agent", id);
     if (manifest === undefined) throw new RepositoryStandardError("CONFIG_INVALID", `Agent "${id}" is not available.`);
     if (!isCompatible(manifest, input.projectType)) throw new RepositoryStandardError("CONFIG_INVALID", `Agent "${id}" is not compatible with ${input.projectType}.`);
-    const reason = task !== undefined && ownsTarget(manifest, task, input.projectType)
-      ? `Owns a target path for ${task.intent}.`
-      : task !== undefined && hasSignal(manifest, task)
+    const reason = flowRequiredIds.has(id) ? "Required by the selected flow."
+      : task !== undefined && ownsTarget(manifest, task, input.projectType)
+        ? `Owns a target path for ${task.intent}.`
+        : task !== undefined && hasSignal(manifest, task)
         ? `Matches a ${task.intent} task signal.`
-        : requiredIds.has(id) ? "Required by project or capability metadata."
+          : requiredIds.has(id) ? "Required by project or capability metadata."
           : selected.has(id) ? "Selected explicitly." : "Recommended by project metadata.";
     return { id, version: manifest.version, reason, required: requiredIds.has(id), manifest };
   });

@@ -1,0 +1,12 @@
+schemaVersion: 1
+id: design
+kind: flow
+version: 1.0.0
+displayName: Design
+flow:
+  intents: [design]
+  inputs: [task]
+  steps:
+    - { id: understand, inputs: [task], outcome: design-constraints, expertise: [] }
+    - { id: propose, inputs: [design-constraints], outcome: design-proposal, expertise: [architecture] }
+    - { id: review, inputs: [design-proposal], outcome: review-findings, expertise: [review], gates: [review], condition: policy.requiresReview }

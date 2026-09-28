@@ -34,4 +34,14 @@ Nếu gọi ngoài thư mục project, thêm `--root /absolute/path/to/project`.
 
 Resolver dùng đường dẫn phụ trách, tín hiệu trong yêu cầu và gợi ý từ manifest. Ví dụ, thay đổi giao diện trong `apps/web` chỉ chọn Frontend; thay đổi đăng nhập trong `apps/api` chọn Backend và Security, đồng thời đề xuất Reviewer. `repo agents explain` chỉ tính và in lựa chọn; nó không sửa cấu hình hay chạy tác vụ.
 
-Flow tự động điều phối nhiều giai đoạn thuộc Phase 6 của roadmap. Phase 5 cung cấp catalog, resolver, mode, giải thích và Codex adapter cho file vai trò.
+## Flow cho tác vụ
+
+Project mới ghi bốn flow `feature`, `bugfix`, `design`, `review` vào `flows.defaults`. Mỗi flow trong `registry/flows/` khai báo các bước, đầu vào, kết quả và chuyên môn agent cần thiết. `design` chỉ tạo đề xuất thiết kế; không có bước triển khai.
+
+```sh
+repo flows explain --text "Fix broken login" --target apps/api/src/auth/router.ts
+repo flows explain --flow design --requires-review
+repo agents explain --text "Fix broken login" --requires-review
+```
+
+`--flow <id>` chọn flow trực tiếp; nếu không truyền, CLI suy luận intent từ tác vụ và chọn flow tương ứng trong `flows.defaults`. `--requires-review` bật bước review có điều kiện. Output liệt kê từng bước, kết quả cần có, chuyên môn cần thiết và lý do bỏ qua bước. `repo agents explain` dùng cùng lựa chọn flow để thêm agent đáp ứng chuyên môn bắt buộc, kể cả trong mode `none`; nếu không có agent tương thích, CLI báo lỗi. Các lệnh này chỉ lập và giải thích kế hoạch, không chạy agent hay sửa project.
