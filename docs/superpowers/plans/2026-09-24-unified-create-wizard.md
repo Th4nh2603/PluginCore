@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-24-unified-create-wizard-design.md`
 
-**Current status (2026-09-28):** The Monorepo editor and review/install loop are implemented on `main` (`f754501`, `c77491e`) and covered by CLI tests. The original RED runs and the manual PTY exercise in Task 3 were not verified during this audit; those boxes remain open as historical evidence gaps.
+**Current status (2026-09-28):** The Monorepo editor and review/install loop are implemented on `main` (`f754501`, `c77491e`) and covered by CLI tests. The original RED runs remain unverified. A PTY exercise confirmed edited Vue selection, Cancel without writes, and Install with a stubbed generator and retained preset.
 
 ## Global Constraints
 
@@ -135,5 +135,5 @@ await applyCreatePlan(plan, io.generatorRunner);
 **Interfaces:** No new exported interfaces.
 
 - [x] **Step 1: Run full automated checks.** `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm build`, and `git diff --check`; record exit codes and address failures caused by these changes.
-- [ ] **Step 2: Exercise the real CLI in a disposable directory.** Use the linked `repo` command in a PTY, choose Monorepo → Recommended → change one category → review → Cancel and confirm no target directory exists; repeat through Install with a stubbed generator only if necessary to avoid external dependency installation. Check the displayed arrow-key menu and final config.
-- [ ] **Step 3: Review the spec line by line.** Check preset editing, Custom completion, review/edit loop, cancellation, flags, one/zero-choice categories, and preservation of other project types against test evidence. Report any remaining limit explicitly.
+- [x] **Step 2: Exercise the real CLI in a disposable directory.** Use the linked `repo` command in a PTY, choose Monorepo → Recommended → change one category → review → Cancel and confirm no target directory exists; repeat through Install with a stubbed generator only if necessary to avoid external dependency installation. Check the displayed arrow-key menu and final config.
+- [x] **Step 3: Review the spec line by line.** Check preset editing, Custom completion, review/edit loop, cancellation, flags, one/zero-choice categories, and preservation of other project types against test evidence. Report any remaining limit explicitly.

@@ -130,8 +130,19 @@ const runCommand = async (argv: readonly string[], io: CliIo): Promise<number> =
   }
 
   if (command.kind === "doctor") {
-    const report = await runDoctor({ projectRoot: process.cwd() });
-    for (const diagnostic of [...report.passed, ...report.warnings, ...report.errors]) io.write(`${diagnostic.severity}: ${diagnostic.message}`);
+    const projectRoot = command.options.get("--project-root");
+    const registryRoot = command.options.get("--registry");
+    if ([...command.options].some(([key, value]) => !["--project-root", "--registry"].includes(key) || value === true)) {
+      io.write("Usage: repo doctor [--project-root <path>] [--registry <path>]");
+      return 2;
+    }
+    const report = await runDoctor({
+      projectRoot: typeof projectRoot === "string" ? projectRoot : process.cwd(),
+      ...(typeof registryRoot === "string" ? { registryRoot } : {})
+    });
+    for (const diagnostic of [...report.passed, ...report.warnings, ...report.errors]) io.write(`${diagnostic.severity} ${diagnostic.code}: ${diagnostic.message}`);
+    const counted = (count: number, singular: string): string => `${count} ${singular}${count === 1 ? "" : "s"}`;
+    io.write(`Summary: ${report.passed.length} passed, ${counted(report.warnings.length, "warning")}, ${counted(report.errors.length, "error")}.`);
     return report.errors.length === 0 ? 0 : 1;
   }
 

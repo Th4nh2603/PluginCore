@@ -30,6 +30,28 @@ const writeEmptyRegistry = async (registryRoot: string): Promise<void> => {
 };
 
 describe("runCli", () => {
+  it("accepts doctor root and registry flags and prints diagnostic counts", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-doctor-cli-"));
+    const registryRoot = path.join(root, "registry");
+    const output: string[] = [];
+    try {
+      await writeEmptyRegistry(registryRoot);
+      expect(await runCli(["doctor", "--project-root", root, "--registry", registryRoot], {
+        write: (line) => output.push(line)
+      })).toBe(0);
+      expect(output.join("\n")).toContain("CONFIG_MISSING");
+      expect(output.join("\n")).toContain("REGISTRY_VALID");
+      expect(output.at(-1)).toBe("Summary: 1 passed, 1 warning, 0 errors.");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects doctor flags without values", async () => {
+    const output: string[] = [];
+    expect(await runCli(["doctor", "--project-root"], { write: (line) => output.push(line) })).toBe(2);
+    expect(output.join("\n")).toContain("--project-root");
+  });
   it("explains a bugfix flow and includes its expertise in agent selection", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-flow-explain-"));
     const targetDirectory = path.join(root, "platform");

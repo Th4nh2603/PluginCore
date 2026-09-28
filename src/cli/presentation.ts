@@ -139,7 +139,7 @@ export const helpText = (): string => `Repository Standard Plugin
 Usage:
   repo --help
   repo info
-  repo doctor
+  repo doctor [--project-root <path>] [--registry <path>]
   repo create <name> [--auth <provider>] [--agents automatic|recommended|custom|none] [--agent <ids>]
   repo agents explain [--root <path>] [--intent <intent>] [--target <path>] [--text <task>] [--flow <id>] [--requires-review]
   repo flows explain [--root <path>] [--intent <intent>] [--target <path>] [--text <task>] [--flow <id>] [--requires-review]`;

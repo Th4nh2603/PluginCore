@@ -89,11 +89,15 @@ Sau khi tạo, đọc README của project và hướng dẫn CLI in ra. Custom 
 | `repo --help` | Hiển thị trợ giúp |
 | `repo info` | Hiển thị tên và phiên bản CLI |
 | `repo create [name]` | Tạo project bằng wizard hoặc tham số |
-| `repo doctor` | Kiểm tra `repo.config.yaml` trong thư mục hiện tại |
+| `repo doctor` | Kiểm tra `repo.config.yaml` và registry được chỉ định, chỉ đọc |
 | `repo agents explain` | Giải thích lựa chọn agent cho một tác vụ trong project đã tạo |
 | `repo flows explain` | Chọn flow và giải thích các bước cho một tác vụ trong project đã tạo |
 
-`doctor` kiểm tra cấu hình, không kiểm tra toàn bộ môi trường hay ứng dụng. Thiếu file cấu hình sẽ tạo cảnh báo.
+`doctor` kiểm tra cấu hình, không kiểm tra toàn bộ môi trường hay ứng dụng. Thiếu file cấu hình sẽ tạo cảnh báo. Dùng `--project-root <path>` để kiểm tra project khác thư mục hiện tại và `--registry <path>` để xác thực manifest trong registry; kết quả gồm mã diagnostic và số lượng passed/warning/error.
+
+```sh
+repo doctor --project-root ./my-platform --registry ./registry
+```
 
 | Tùy chọn của `create` | Ý nghĩa |
 | --- | --- |

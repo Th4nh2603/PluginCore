@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -19,6 +19,21 @@ afterEach(async () => {
 });
 
 describe("runDoctor", () => {
+  it("validates a supplied registry independently of the project config", async () => {
+    const root = await makeRoot();
+    const registryRoot = path.join(root, "registry");
+    await mkdir(path.join(registryRoot, "project-types", "empty"), { recursive: true });
+    await writeFile(path.join(registryRoot, "project-types", "empty", "manifest.yaml"),
+      "schemaVersion: 1\nid: empty\nkind: project-type\nversion: 1.0.0\ndisplayName: Empty\n");
+    const valid = await runDoctor({ projectRoot: root, registryRoot });
+    expect(valid.warnings).toContainEqual(expect.objectContaining({ code: "CONFIG_MISSING" }));
+    expect(valid.passed).toContainEqual(expect.objectContaining({ code: "REGISTRY_VALID" }));
+
+    await writeFile(path.join(registryRoot, "project-types", "empty", "manifest.yaml"), "invalid: manifest\n");
+    const invalid = await runDoctor({ projectRoot: root, registryRoot });
+    expect(invalid.warnings).toContainEqual(expect.objectContaining({ code: "CONFIG_MISSING" }));
+    expect(invalid.errors).toContainEqual(expect.objectContaining({ code: "REGISTRY_INVALID" }));
+  });
   it("reports a missing repo.config.yaml as a warning", async () => {
     const report = await runDoctor({ projectRoot: await makeRoot() });
 

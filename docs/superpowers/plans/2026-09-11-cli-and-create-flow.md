@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-10-repository-standard-plugin-design.md`
 
-**Current status (2026-09-28):** The Phase 3 CLI foundation and Phase 4 create flow are implemented on `main`. This is a historical plan: unchecked RED steps mean the original test-first sequence was not independently verified, while unchecked implementation steps identify differences from the written plan. In particular, `repo doctor` currently checks the working directory only; its planned `--project-root`/`--registry` options and registry diagnostics are not implemented. Framework generation and capabilities were added in later work, so the original "exactly two files" create assertion no longer describes current output. The planned final push has not occurred.
+**Current status (2026-09-28):** The Phase 3 CLI foundation and Phase 4 create flow are implemented. This is a historical plan: unchecked RED steps mean the original test-first sequence was not independently verified, while unchecked implementation steps identify differences from the written plan. The doctor root/registry options and diagnostics were completed in the Phase 1–4 gap closure. Framework generation and capabilities were added in later work, so the original "exactly two files" create assertion no longer describes current output. The planned final push has not occurred.
 
 ## Global Constraints
 
@@ -100,7 +100,7 @@ git commit -m "feat: add repository CLI foundation"
 
 ### Task 2: Add a read-only `repo doctor`
 
-**Outcome:** Read-only config diagnostics were implemented in `45a3bc2`. The planned root/registry CLI options, registry diagnostics, and summary counts are still absent.
+**Outcome:** Read-only config diagnostics were implemented in `45a3bc2`; the later gap closure added `--project-root`, `--registry`, registry diagnostics, and summary counts.
 
 **Files:**
 - Create: `src/application/doctor-service.ts`
@@ -133,7 +133,7 @@ Run: `pnpm vitest run tests/application/doctor-service.test.ts`
 
 Expected: FAIL because `runDoctor` does not exist.
 
-- [ ] **Step 3: Implement doctor as a read-only service**
+- [x] **Step 3: Implement doctor as a read-only service**
 
 `runDoctor` calls `loadRepoConfig(projectRoot)` and maps `ENOENT` to warning `CONFIG_MISSING`; config validation errors become `CONFIG_INVALID` errors; a valid config emits `CONFIG_VALID`. When `registryRoot` is supplied, it calls `loadRegistry` and reports `REGISTRY_VALID` or an error diagnostic. `repo doctor [--project-root <path>] [--registry <path>]` prints summary counts and returns `1` only when errors exist.
 
@@ -260,7 +260,7 @@ git commit -m "feat: create managed repositories from reviewed plans"
 
 ### Task 5: Document CLI use and run clean verification
 
-**Outcome:** README documents the current commands and supported project generation. The examples below include unimplemented doctor flags, and the requested clean-checkout/push step remains open.
+**Outcome:** README documents the current commands and supported project generation, including doctor flags. The requested push remains open.
 
 **Files:**
 - Modify: `README.md`
@@ -270,7 +270,7 @@ git commit -m "feat: create managed repositories from reviewed plans"
 - Consumes: command behavior from Tasks 1–4.
 - Produces: exact command examples and documented intentional limitations.
 
-- [ ] **Step 1: Document executable commands**
+- [x] **Step 1: Document executable commands**
 
 Add examples for `pnpm build && node bin/repo.cjs --help`, `repo info`, `repo doctor --project-root .`, and the non-interactive safe command:
 
@@ -280,7 +280,7 @@ node bin/repo.cjs create demo --type empty --target ./demo --registry ./registry
 
 State that framework generation, capability installation, `init`, `add`, `remove`, and updates remain later phases.
 
-- [ ] **Step 2: Run clean verification and inspect scope**
+- [x] **Step 2: Run clean verification and inspect scope**
 
 Run: `pnpm install --frozen-lockfile && pnpm lint && pnpm typecheck && pnpm test && pnpm build && node bin/repo.cjs --help && git diff --check && git status --short`
 
