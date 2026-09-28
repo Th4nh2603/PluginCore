@@ -24,6 +24,7 @@ describe("resolveFlow", () => {
   it("keeps design free of implementation and honors explicit flow selection", () => {
     const result = resolveFlow({ registry, projectType: "web", defaults, intent: "feature", selected: "design" });
     expect(result.id).toBe("design");
+    expect(result.intent).toBe("design");
     expect(result.steps.map((step) => step.id)).toEqual(["understand", "propose"]);
     expect(result.expertise).toEqual(["architecture"]);
     expect(result.explanation[0]).toContain("explicit");

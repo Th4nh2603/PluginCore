@@ -53,6 +53,8 @@ export const resolveFlow = (input: FlowInput): FlowResolution => {
   }
   const definition = selected.flow;
   if (definition === undefined) throw new RepositoryStandardError("MANIFEST_INVALID", `Flow "${selected.id}" has no definition.`);
+  const resolvedIntent = input.selected === undefined || definition.intents.includes(intent)
+    ? intent : definition.intents[0] ?? intent;
   const steps = definition.steps.filter((step) => step.condition !== "policy.requiresReview" || input.requiresReview === true);
   const omitted = definition.steps.filter((step) => !steps.includes(step))
     .map((step) => ({ id: step.id, reason: "Review policy is not required." }));
@@ -68,7 +70,7 @@ export const resolveFlow = (input: FlowInput): FlowResolution => {
   const expertise = [...new Set(steps.flatMap((step) => step.expertise))];
   return {
     id: selected.id,
-    intent,
+    intent: resolvedIntent,
     steps,
     omitted,
     expertise,

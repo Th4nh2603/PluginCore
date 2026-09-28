@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -80,6 +80,16 @@ describe("runCli", () => {
       })).toBe(0);
       expect(agentOutput.join("\n")).toContain("architect: Required by the selected flow.");
       expect(agentOutput.join("\n")).not.toContain("frontend:");
+      const registryRoot = path.join(root, "registry");
+      await cp("registry", registryRoot, { recursive: true });
+      await mkdir(path.join(registryRoot, "flows", "design-lite"));
+      await writeFile(path.join(registryRoot, "flows", "design-lite", "manifest.yaml"),
+        "schemaVersion: 1\nid: design-lite\nkind: flow\nversion: 1.0.0\ndisplayName: Design Lite\nflow:\n  intents: [design]\n  inputs: [task]\n  steps:\n    - { id: propose, inputs: [task], outcome: proposal, expertise: [architecture] }\n");
+      agentOutput.length = 0;
+      expect(await runCli(["agents", "explain", "--root", targetDirectory, "--registry", registryRoot,
+        "--flow", "design-lite", "--target", "apps/web/src/App.tsx"], { write: (line) => agentOutput.push(line) })).toBe(0);
+      expect(agentOutput.join("\n")).not.toContain("frontend:");
+      expect(agentOutput.join("\n")).toContain("Intent: design");
       await expect(runCli(["flows", "explain", "--root", targetDirectory, "--flow", "missing"], {
         write: () => undefined
       })).rejects.toThrow('Flow "missing" is not available.');

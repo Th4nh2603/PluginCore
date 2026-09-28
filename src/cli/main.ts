@@ -181,7 +181,7 @@ const runCommand = async (argv: readonly string[], io: CliIo): Promise<number> =
       ...(config.agents.mode === "custom" ? { selected: config.agents.enabled.map(referenceId) } : {}),
       capabilities: config.composition.capabilities?.map((capability) => capability.id) ?? [],
       requiredExpertise: flow.expertise,
-      task: { ...task, intent: typeof selectedFlow === "string" ? flow.id : flow.intent }
+      task: { ...task, intent: flow.intent }
     });
     io.write(flow.explanation[0] ?? `Flow: ${flow.id}`);
     io.write(`Enabled: ${resolution.enabled.map((agent) => agent.id).join(", ") || "none"}`);
