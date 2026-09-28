@@ -1,6 +1,6 @@
 # Phase 6 implementation plan
 
-**Status:** Implemented on `feat/phase-6-flows`. Final checks: lint, typecheck, 176 tests, and build passed.
+**Status:** Implemented and merged into `main` at `98af304`. On the merged checkout, lint, typecheck, 191 tests, and build passed with the existing local changes restored.
 
 ## Task 1: Manifest contract and initial catalog
 
