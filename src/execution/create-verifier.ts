@@ -71,7 +71,8 @@ export const verifyManagedState = async (
   for (const raw of files) {
     if (typeof raw !== "object" || raw === null || Array.isArray(raw)) throw invalid("Managed state contains an invalid file record.");
     const entry = raw as Record<string, unknown>;
-    if (typeof entry.path !== "string" || typeof entry.owner !== "string" || entry.owner.length === 0 ||
+    const legacyConfigRecord = expected === undefined && files.length === 1 && entry.path === "repo.config.yaml" && entry.owner === undefined;
+    if (typeof entry.path !== "string" || (!legacyConfigRecord && (typeof entry.owner !== "string" || entry.owner.length === 0)) ||
       typeof entry.hash !== "string" || !/^[a-f0-9]{64}$/u.test(entry.hash) ||
       (entry.version !== undefined && (typeof entry.version !== "string" || entry.version.length === 0)) ||
       seen.has(entry.path)) {
@@ -79,7 +80,7 @@ export const verifyManagedState = async (
     }
     seen.add(entry.path);
     if (entry.path === "repo.config.yaml") {
-      if (entry.owner !== "core" || entry.version !== undefined || entry.hash !== expectedHash) {
+      if ((!legacyConfigRecord && entry.owner !== "core") || entry.version !== undefined || entry.hash !== expectedHash) {
         throw invalid("Managed state does not match repo.config.yaml.");
       }
     } else if (expected !== undefined) {

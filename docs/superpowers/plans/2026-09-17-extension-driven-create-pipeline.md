@@ -145,7 +145,7 @@
 
 ### Task 6: Track managed files and align documentation
 
-**Status:** Complete on `feat/phase4-closeout`. Executor records owner, version, and SHA-256 for generated files; final verification checks every recorded file. The create boundary rejects capabilities without generators before writing a target. The historical checkboxes in Tasks 1–3 were not maintained, although their resolver, planner, generator modules, commits, and tests exist; this closeout verified their current behavior without rewriting that execution history.
+**Status:** Complete on `feat/phase4-closeout`. Executor records owner, version, and SHA-256 for generated files; final verification checks every recorded file. The verifier also accepts the older config-only v1 state when called without an expected generated-file inventory. The create boundary rejects capabilities without generators before writing a target. The historical checkboxes in Tasks 1–3 were not maintained, although their resolver, planner, generator modules, commits, and tests exist; this closeout verified their current behavior without rewriting that execution history.
 
 **Files:**
 - Modify: `src/application/project-state.ts`
@@ -171,7 +171,7 @@
 
 - [x] `pnpm lint`
 - [x] `pnpm typecheck`
-- [x] `pnpm test` (171 tests)
+- [x] `pnpm test` (172 tests)
 - [x] `pnpm build`
 - [x] Create a temporary monorepo with custom auth and verify generated config parses (33 managed files).
 - [x] Create a temporary monorepo with Clerk auth and verify generated config parses (31 managed files).

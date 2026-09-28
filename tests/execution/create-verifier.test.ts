@@ -34,6 +34,19 @@ afterEach(async () => {
 });
 
 describe("create verifier", () => {
+  it("accepts legacy config-only v1 state when no generated inventory is expected", async () => {
+    const target = await makeTarget();
+    const configText = stringify(config);
+    await writeFile(path.join(target, "repo.config.yaml"), configText);
+    await mkdir(path.join(target, ".repo-standard"));
+    await writeFile(path.join(target, ".repo-standard", "managed-state.yaml"), stringify({
+      schemaVersion: 1,
+      pluginVersion: "0.1.0",
+      files: [{ path: "repo.config.yaml", hash: createHash("sha256").update(configText).digest("hex") }]
+    }));
+    await expect(verifyManagedState(target, configText)).resolves.toBeUndefined();
+    await expect(verifyManagedState(target, configText, [])).rejects.toMatchObject({ code: "CONFIG_INVALID" });
+  });
   it("checks every managed file hash and required ownership record", async () => {
     const target = await makeTarget();
     const configText = stringify(config);
