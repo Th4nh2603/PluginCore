@@ -115,7 +115,10 @@ export const resolveCreateComposition = (input: CreateResolutionInput): CreateRe
       enabled: agentResolution.enabled.map((agent) => `${agent.id}@${agent.version}`),
       adapters: adapters.map((adapter) => adapter.id)
     },
-    flows: { defaults: [] },
+    flows: { defaults: input.registry.list("flow").filter((flow) => {
+      const projectTypes = flow.compatibility?.projectTypes;
+      return !Array.isArray(projectTypes) || projectTypes.includes(input.projectType);
+    }).map((flow) => flow.id) },
     standards: { overrides: [] },
     managed: { stateFile: ".repo-standard/managed-state.yaml" }
   };

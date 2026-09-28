@@ -45,6 +45,20 @@ describe("resolveAgents", () => {
     expect(result.enabled[0]?.required).toBe(true);
   });
 
+  it("covers expertise required by a selected flow even in none mode", () => {
+    const result = resolveAgents({ registry, projectType: "monorepo", mode: "none", requiredExpertise: ["testing", "review"] });
+    expect(result.enabled.map((agent) => agent.id).sort()).toEqual(["reviewer", "testing"]);
+    expect(result.enabled.every((agent) => agent.required)).toBe(true);
+    expect(result.enabled.find((agent) => agent.id === "reviewer")?.manifest.agent?.reviewOnly).toBe(true);
+  });
+
+  it("explains flow requirements even when an agent also matches task signals", () => {
+    const result = resolveAgents({ registry, projectType: "api", mode: "automatic", requiredExpertise: ["testing"], task: {
+      intent: "bugfix", targetPaths: ["tests/auth.test.ts"], text: "Fix regression test"
+    } });
+    expect(result.enabled.find((agent) => agent.id === "testing")?.reason).toBe("Required by the selected flow.");
+  });
+
   it("supports none, recommended and validated custom modes", () => {
     expect(resolveAgents({ registry, projectType: "monorepo", mode: "none" }).enabled).toEqual([]);
     expect(resolveAgents({ registry, projectType: "monorepo", mode: "recommended" }).recommended.map((agent) => agent.id))

@@ -1,0 +1,12 @@
+schemaVersion: 1
+id: feature
+kind: flow
+version: 1.0.0
+displayName: Feature
+flow:
+  intents: [feature, refactor, test, security, git, release]
+  steps:
+    - { id: scope, inputs: [task], outcome: acceptance-criteria, expertise: [] }
+    - { id: implement, inputs: [acceptance-criteria], outcome: proposed-change, expertise: [] }
+    - { id: verify, inputs: [proposed-change], outcome: verification-result, expertise: [testing], gates: [verification] }
+    - { id: review, inputs: [verification-result], outcome: review-findings, expertise: [review], gates: [review], condition: policy.requiresReview }

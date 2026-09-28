@@ -141,6 +141,7 @@ Usage:
   repo info
   repo doctor
   repo create <name> [--auth <provider>] [--agents automatic|recommended|custom|none] [--agent <ids>]
-  repo agents explain [--root <path>] [--intent <intent>] [--target <path>] [--text <task>]`;
+  repo agents explain [--root <path>] [--intent <intent>] [--target <path>] [--text <task>] [--flow <id>] [--requires-review]
+  repo flows explain [--root <path>] [--intent <intent>] [--target <path>] [--text <task>] [--flow <id>] [--requires-review]`;
 
 export const infoText = (info: PluginInfo): string => `${info.id} ${info.version}`;

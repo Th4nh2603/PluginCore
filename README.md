@@ -85,6 +85,7 @@ Sau khi tạo, đọc README của project và hướng dẫn CLI in ra. Custom 
 | `repo create [name]` | Tạo project bằng wizard hoặc tham số |
 | `repo doctor` | Kiểm tra `repo.config.yaml` trong thư mục hiện tại |
 | `repo agents explain` | Giải thích lựa chọn agent cho một tác vụ trong project đã tạo |
+| `repo flows explain` | Chọn flow và giải thích các bước cho một tác vụ trong project đã tạo |
 
 `doctor` kiểm tra cấu hình, không kiểm tra toàn bộ môi trường hay ứng dụng. Thiếu file cấu hình sẽ tạo cảnh báo.
 
@@ -108,6 +109,8 @@ repo create my-web --type web --preset recommended-web --yes
 Ở chế độ không tương tác, bỏ `--yes` để xem preview mà chưa ghi file (exit code `2`). `--yes` hiện không tắt wizard trong terminal tương tác.
 
 Agent được chọn từ manifest trong registry và ghi vào `agents.enabled` của `repo.config.yaml`. Codex adapter tạo `AGENTS.md` cùng các file `agents/*.toml`; `none` không tạo các file này khi tạo project. Các vai trò chỉ là hướng dẫn làm việc, không tự khởi chạy agent. Xem [hệ thống agent](docs/agents.md) để dùng mode và lệnh giải thích theo tác vụ.
+
+Flow mặc định của project gồm `feature`, `bugfix`, `design`, `review`. Chạy `repo flows explain --text "Fix broken login"` trong project để xem flow được chọn và từng bước. Dùng `--flow design` để chọn trực tiếp, hoặc `--requires-review` để thêm bước review có điều kiện. `repo agents explain` nhận cùng các tùy chọn và tính thêm agent cần cho flow. Các lệnh giải thích là chỉ đọc; xem [hướng dẫn flow và agent](docs/agents.md).
 
 ## Windows / PowerShell
 

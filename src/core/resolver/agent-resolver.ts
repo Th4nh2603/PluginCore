@@ -16,6 +16,7 @@ export interface AgentResolutionInput {
   readonly mode: AgentMode;
   readonly selected?: readonly string[];
   readonly capabilities?: readonly string[];
+  readonly requiredExpertise?: readonly string[];
   readonly task?: AgentTaskContext;
 }
 
@@ -35,7 +36,7 @@ export interface AgentResolution {
   readonly taskIntent?: string;
 }
 
-const inferIntent = (task: AgentTaskContext): string => {
+export const inferIntent = (task: AgentTaskContext): string => {
   if (task.intent !== undefined) return task.intent;
   const text = task.text.toLowerCase();
   const terms: readonly [string, RegExp, number][] = [
@@ -79,6 +80,20 @@ export const resolveAgents = (input: AgentResolutionInput): AgentResolution => {
   const task = input.task === undefined ? undefined : { ...input.task, intent: inferIntent(input.task) };
   const defaultIds = project.agentHints?.recommended ?? [];
   const requiredIds = new Set(project.agentHints?.required ?? []);
+  const flowRequiredIds = new Set<string>();
+  for (const expertise of input.requiredExpertise ?? []) {
+    const candidate = input.registry.list("agent").find((manifest) =>
+      isCompatible(manifest, input.projectType) && manifest.agent?.expertise.includes(expertise) &&
+      (expertise === "review" || manifest.agent.reviewOnly === false) &&
+      (manifest.id === expertise || manifest.id === `${expertise}er`)
+    ) ?? input.registry.list("agent").find((manifest) =>
+      isCompatible(manifest, input.projectType) && manifest.agent?.expertise.includes(expertise) &&
+      (expertise === "review" || manifest.agent.reviewOnly === false)
+    );
+    if (candidate === undefined) throw new RepositoryStandardError("CONFIG_INVALID", `No compatible agent covers flow expertise "${expertise}".`);
+    requiredIds.add(candidate.id);
+    flowRequiredIds.add(candidate.id);
+  }
   for (const capabilityId of input.capabilities ?? []) {
     const capability = input.registry.get("capability", capabilityId);
     if (capability === undefined) throw new RepositoryStandardError("CONFIG_INVALID", `Capability "${capabilityId}" is not available.`);
@@ -112,11 +127,12 @@ export const resolveAgents = (input: AgentResolutionInput): AgentResolution => {
     const manifest = input.registry.get("agent", id);
     if (manifest === undefined) throw new RepositoryStandardError("CONFIG_INVALID", `Agent "${id}" is not available.`);
     if (!isCompatible(manifest, input.projectType)) throw new RepositoryStandardError("CONFIG_INVALID", `Agent "${id}" is not compatible with ${input.projectType}.`);
-    const reason = task !== undefined && ownsTarget(manifest, task, input.projectType)
-      ? `Owns a target path for ${task.intent}.`
-      : task !== undefined && hasSignal(manifest, task)
+    const reason = flowRequiredIds.has(id) ? "Required by the selected flow."
+      : task !== undefined && ownsTarget(manifest, task, input.projectType)
+        ? `Owns a target path for ${task.intent}.`
+        : task !== undefined && hasSignal(manifest, task)
         ? `Matches a ${task.intent} task signal.`
-        : requiredIds.has(id) ? "Required by project or capability metadata."
+          : requiredIds.has(id) ? "Required by project or capability metadata."
           : selected.has(id) ? "Selected explicitly." : "Recommended by project metadata.";
     return { id, version: manifest.version, reason, required: requiredIds.has(id), manifest };
   });

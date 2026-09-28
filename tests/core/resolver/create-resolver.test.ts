@@ -111,6 +111,7 @@ describe("resolveCreateComposition", () => {
       enabled: ["frontend@1.0.0", "backend@1.0.0", "shared@1.0.0", "reviewer@1.0.0"],
       adapters: ["codex"]
     });
+    expect(resolution.config.flows.defaults).toEqual(["bugfix", "design", "feature", "review"]);
   });
 
   it("requires Monorepo authentication to come from the registry", () => {

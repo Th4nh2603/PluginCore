@@ -12,6 +12,7 @@ import { buildInfo } from "../application/info-service.js";
 import { loadRegistry, type Registry } from "../core/registry/registry-loader.js";
 import { loadRepoConfig } from "../core/config/repo-config.js";
 import { resolveAgents } from "../core/resolver/agent-resolver.js";
+import { resolveFlow } from "../core/resolver/flow-resolver.js";
 import type { ExtensionManifest } from "../core/registry/manifest.js";
 import { hasImplementedGenerator } from "../execution/generation-contract.js";
 import { parseArguments } from "./arguments.js";
@@ -134,9 +135,9 @@ const runCommand = async (argv: readonly string[], io: CliIo): Promise<number> =
     return report.errors.length === 0 ? 0 : 1;
   }
 
-  if (command.kind === "agents") {
+  if (command.kind === "agents" || command.kind === "flows") {
     if (command.action !== "explain") {
-      io.write("Usage: repo agents explain [--root <path>] [--intent <intent>] [--target <path>] [--text <task>]");
+      io.write(`Usage: repo ${command.kind} explain [--root <path>] [--intent <intent>] [--target <path>] [--text <task>] [--flow <id>] [--requires-review]`);
       return 2;
     }
     const root = command.options.get("--root");
@@ -144,24 +145,45 @@ const runCommand = async (argv: readonly string[], io: CliIo): Promise<number> =
     const intent = command.options.get("--intent");
     const target = command.options.get("--target");
     const taskText = command.options.get("--text");
-    if ([root, registryOption, intent, target, taskText].some((value) => value === true)) {
-      io.write("Agent explanation options require values.");
+    const selectedFlow = command.options.get("--flow");
+    const requiresReview = command.options.get("--requires-review");
+    if ([root, registryOption, intent, target, taskText, selectedFlow].some((value) => value === true) ||
+      (requiresReview !== undefined && requiresReview !== true)) {
+      io.write("Explanation options require values; --requires-review is a flag.");
       return 2;
     }
     const config = await loadRepoConfig(typeof root === "string" ? root : process.cwd());
     const registry = await loadRegistry(typeof registryOption === "string" ? registryOption : defaultRegistryRoot());
+    const task = {
+      ...(typeof intent === "string" ? { intent } : {}),
+      targetPaths: typeof target === "string" ? target.split(",").map((value) => value.trim()).filter(Boolean) : [],
+      text: typeof taskText === "string" ? taskText : ""
+    };
+    const flow = resolveFlow({
+      registry,
+      projectType: config.project.type,
+      defaults: config.flows.defaults,
+      task,
+      ...(typeof intent === "string" ? { intent } : {}),
+      ...(typeof selectedFlow === "string" ? { selected: selectedFlow } : {}),
+      requiresReview: requiresReview === true
+    });
+    if (command.kind === "flows") {
+      io.write(flow.explanation[0] ?? `Flow: ${flow.id}`);
+      for (const step of flow.steps) io.write(`Step: ${step.id} (inputs: ${step.inputs.join(", ") || "none"}) → ${step.outcome}${step.expertise.length === 0 ? "" : ` [${step.expertise.join(", ")}]`}${step.gates.length === 0 ? "" : ` (gate: ${step.gates.join(", ")})`}`);
+      for (const omitted of flow.omitted) io.write(`Skipped ${omitted.id}: ${omitted.reason}`);
+      return 0;
+    }
     const resolution = resolveAgents({
       registry,
       projectType: config.project.type,
       mode: config.agents.mode,
       ...(config.agents.mode === "custom" ? { selected: config.agents.enabled.map(referenceId) } : {}),
       capabilities: config.composition.capabilities?.map((capability) => capability.id) ?? [],
-      task: {
-        ...(typeof intent === "string" ? { intent } : {}),
-        targetPaths: typeof target === "string" ? target.split(",").map((value) => value.trim()).filter(Boolean) : [],
-        text: typeof taskText === "string" ? taskText : ""
-      }
+      requiredExpertise: flow.expertise,
+      task: { ...task, intent: typeof selectedFlow === "string" ? flow.id : flow.intent }
     });
+    io.write(flow.explanation[0] ?? `Flow: ${flow.id}`);
     io.write(`Enabled: ${resolution.enabled.map((agent) => agent.id).join(", ") || "none"}`);
     for (const explanation of resolution.explanation) io.write(explanation);
     const optional = resolution.recommended.filter((agent) => !resolution.enabled.some((enabled) => enabled.id === agent.id));

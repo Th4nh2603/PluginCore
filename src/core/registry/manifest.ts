@@ -17,6 +17,18 @@ export type ExtensionKind = z.infer<typeof ExtensionKindSchema>;
 const extensionId = z.string().regex(/^[a-z0-9][a-z0-9./-]*$/i, "Invalid extension ID.");
 const semanticVersion = z.string().regex(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/, "Invalid SemVer.");
 
+const FlowSchema = z.object({
+  intents: z.array(z.string().min(1)).min(1),
+  steps: z.array(z.object({
+    id: z.string().min(1),
+    inputs: z.array(z.string().min(1)),
+    outcome: z.string().min(1),
+    expertise: z.array(z.string().min(1)),
+    gates: z.array(z.enum(["verification", "review"])).default([]),
+    condition: z.enum(["policy.requiresReview"]).optional()
+  }).strict()).min(1)
+}).strict();
+
 export const ExtensionManifestSchema = z
   .object({
     schemaVersion: z.literal(1),
@@ -42,6 +54,7 @@ export const ExtensionManifestSchema = z
         recommended: z.array(extensionId).default([])
       })
       .optional(),
+    flow: FlowSchema.optional(),
     agent: z.object({
       expertise: z.array(z.string()).default([]),
       intents: z.array(z.string()).default([]),
@@ -55,6 +68,14 @@ export const ExtensionManifestSchema = z
       requiredOnSignal: z.boolean().default(false)
     }).strict().optional()
   })
-  .strict();
+  .strict()
+  .superRefine((manifest, context) => {
+    if (manifest.kind === "flow" && manifest.flow === undefined) {
+      context.addIssue({ code: "custom", message: "Flow manifest requires a flow definition.", path: ["flow"] });
+    }
+    if (manifest.kind !== "flow" && manifest.flow !== undefined) {
+      context.addIssue({ code: "custom", message: "Only flow manifests can define a flow.", path: ["flow"] });
+    }
+  });
 
 export type ExtensionManifest = z.infer<typeof ExtensionManifestSchema>;
