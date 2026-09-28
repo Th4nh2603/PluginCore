@@ -159,10 +159,11 @@ pnpm test
 pnpm build
 ```
 
-CLI hiện có `create`, `info`, `doctor` và trợ giúp. Các tính năng trong tài liệu thiết kế không đồng nghĩa đã được triển khai thành lệnh CLI.
+CLI hiện có `create`, `info`, `doctor`, `agents explain`, `flows explain` và trợ giúp. Các tính năng trong tài liệu thiết kế không đồng nghĩa đã được triển khai thành lệnh CLI.
 
 ## Tài liệu thiết kế
 
+- [Trạng thái thực tế và checklist Phase 1–6](docs/roadmap-status.md)
 - [Các bước và lựa chọn hiện tại của `repo create`](docs/cli-create-wizard.md)
 - [Architecture specification](docs/superpowers/specs/2026-09-10-repository-standard-plugin-design.md)
 - [CLI and create flow](docs/superpowers/plans/2026-09-11-cli-and-create-flow.md)

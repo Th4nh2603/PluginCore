@@ -10,6 +10,8 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-24-unified-create-wizard-design.md`
 
+**Current status (2026-09-28):** The Monorepo editor and review/install loop are implemented on `main` (`f754501`, `c77491e`) and covered by CLI tests. The original RED runs and the manual PTY exercise in Task 3 were not verified during this audit; those boxes remain open as historical evidence gaps.
+
 ## Global Constraints
 
 - Only interactive Monorepo creation changes; Web, API, Empty, flags, and noninteractive behavior retain their meaning.
@@ -54,7 +56,7 @@ expect(messages).toEqual(["Start from", "Configure stack", "Frontend", "Configur
 
 - [ ] **Step 2: Run the focused test and verify RED.** Run `pnpm exec vitest run tests/cli/monorepo-wizard.test.ts`; expect a missing-export or behavior assertion failure.
 
-- [ ] **Step 3: Implement the editor.** Build compatible component choices from the registry; pre-fill editable values from preset keys (`frontend-library`, `backend-framework`, `orm`) and preferred `auth-*` capability; select Custom or Recommended once; then loop over a `Configure stack` menu with four value-labelled rows and Continue. For each row, use `prompt.select(label, choices)` if multiple choices exist, directly fill if exactly one, and report an invalid/incomplete selection as `undefined`. Keep the original preset ID when values change. On `Continue`, return versioned stack overrides only for changed preset categories; for Custom, return all selected editable categories. Preserve previous selection when re-entering after review.
+- [x] **Step 3: Implement the editor.** Build compatible component choices from the registry; pre-fill editable values from preset keys (`frontend-library`, `backend-framework`, `orm`) and preferred `auth-*` capability; select Custom or Recommended once; then loop over a `Configure stack` menu with four value-labelled rows and Continue. For each row, use `prompt.select(label, choices)` if multiple choices exist, directly fill if exactly one, and report an invalid/incomplete selection as `undefined`. Keep the original preset ID when values change. On `Continue`, return versioned stack overrides only for changed preset categories; for Custom, return all selected editable categories. Preserve previous selection when re-entering after review.
 
 ```ts
 export interface MonorepoSelection {
@@ -79,8 +81,8 @@ if (!selectedCategory.choices.some((choice) => choice.value === value)) return u
 selectedValues[selectedCategory.key] = value;
 ```
 
-- [ ] **Step 4: Run the focused test and verify GREEN.** Run `pnpm exec vitest run tests/cli/monorepo-wizard.test.ts`; expect 0 failures.
-- [ ] **Step 5: Commit only the editor files.** `git add src/cli/monorepo-wizard.ts tests/cli/monorepo-wizard.test.ts && git -c user.name=Codex -c user.email=codex@openai.com commit -m "feat: add editable monorepo selection menu"`.
+- [x] **Step 4: Run the focused test and verify GREEN.** Run `pnpm exec vitest run tests/cli/monorepo-wizard.test.ts`; expect 0 failures.
+- [x] **Step 5: Commit only the editor files.** `git add src/cli/monorepo-wizard.ts tests/cli/monorepo-wizard.test.ts && git -c user.name=Codex -c user.email=codex@openai.com commit -m "feat: add editable monorepo selection menu"`.
 
 ### Task 2: Review and install orchestration
 
@@ -107,7 +109,7 @@ expect(existsSync(targetDirectory)).toBe(true);
 
 - [ ] **Step 2: Run relevant tests and verify RED.** Run `pnpm exec vitest run tests/cli/recommended-wizard.test.ts tests/cli/custom-wizard.test.ts tests/cli/presentation.test.ts`; expect wizard prompt or review assertions to fail.
 
-- [ ] **Step 3: Implement the Monorepo branch and review formatter.** In `main.ts`, call the new editor only when the command is interactive and `projectType === "monorepo"`. Validate explicit `--auth` as today. Build `planCreate` from returned preset, overrides, and authentication, then print a review assembled from the resolved plan config plus starting-point/changed context. Prompt with `Install`, `Edit stack`, `Cancel`; on Edit, re-enter the editor with its previous selection and rebuild the plan. Return 2 without writing on invalid selection or Cancel. Keep the existing non-Monorepo and noninteractive branches intact. Avoid duplicate preview output.
+- [x] **Step 3: Implement the Monorepo branch and review formatter.** In `main.ts`, call the new editor only when the command is interactive and `projectType === "monorepo"`. Validate explicit `--auth` as today. Build `planCreate` from returned preset, overrides, and authentication, then print a review assembled from the resolved plan config plus starting-point/changed context. Prompt with `Install`, `Edit stack`, `Cancel`; on Edit, re-enter the editor with its previous selection and rebuild the plan. Return 2 without writing on invalid selection or Cancel. Keep the existing non-Monorepo and noninteractive branches intact. Avoid duplicate preview output.
 
 ```ts
 const action = await interactive.select("Review", [
@@ -120,9 +122,9 @@ if (action !== "install") return 2;
 await applyCreatePlan(plan, io.generatorRunner);
 ```
 
-- [ ] **Step 4: Update the flow document.** Replace the old Monorepo Recommended/Custom branch description in `docs/cli-create-wizard.md` with the new three-stage flow; retain accurate Web/API/Empty and flag behavior.
-- [ ] **Step 5: Run focused tests and verify GREEN.** Run `pnpm exec vitest run tests/cli/recommended-wizard.test.ts tests/cli/custom-wizard.test.ts tests/cli/presentation.test.ts`; expect 0 failures.
-- [ ] **Step 6: Commit only Task 2 files.** Stage the six paths above and commit `feat: unify monorepo create wizard` with the local Codex author identity; do not stage unrelated working-tree changes.
+- [x] **Step 4: Update the flow document.** Replace the old Monorepo Recommended/Custom branch description in `docs/cli-create-wizard.md` with the new three-stage flow; retain accurate Web/API/Empty and flag behavior.
+- [x] **Step 5: Run focused tests and verify GREEN.** Run `pnpm exec vitest run tests/cli/recommended-wizard.test.ts tests/cli/custom-wizard.test.ts tests/cli/presentation.test.ts`; expect 0 failures.
+- [x] **Step 6: Commit only Task 2 files.** Stage the six paths above and commit `feat: unify monorepo create wizard` with the local Codex author identity; do not stage unrelated working-tree changes.
 
 ### Task 3: Full verification and terminal exercise
 
@@ -132,6 +134,6 @@ await applyCreatePlan(plan, io.generatorRunner);
 
 **Interfaces:** No new exported interfaces.
 
-- [ ] **Step 1: Run full automated checks.** `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm build`, and `git diff --check`; record exit codes and address failures caused by these changes.
+- [x] **Step 1: Run full automated checks.** `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm build`, and `git diff --check`; record exit codes and address failures caused by these changes.
 - [ ] **Step 2: Exercise the real CLI in a disposable directory.** Use the linked `repo` command in a PTY, choose Monorepo → Recommended → change one category → review → Cancel and confirm no target directory exists; repeat through Install with a stubbed generator only if necessary to avoid external dependency installation. Check the displayed arrow-key menu and final config.
 - [ ] **Step 3: Review the spec line by line.** Check preset editing, Custom completion, review/edit loop, cancellation, flags, one/zero-choice categories, and preservation of other project types against test evidence. Report any remaining limit explicitly.

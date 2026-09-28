@@ -10,6 +10,8 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-17-extension-driven-create-pipeline-design.md`
 
+**Checklist convention (audited 2026-09-28):** Checked implementation and verification steps have current code/tests or commits as evidence. The unchecked test-first/RED steps in Tasks 1–3 are historical sequence claims that were not independently verified; they do not mean the resulting feature is missing. Proposed file paths and commit messages below are plan-time examples where the delivered module or commit differs.
+
 ## Global Constraints
 
 - Preserve `repo create`, `repo info`, and `repo doctor` UX unless the spec explicitly changes a boundary.
@@ -21,6 +23,8 @@
 ---
 
 ### Task 1: Extract pure composition resolution
+
+**Outcome:** Resolver and delegation are present (`5917f60`); current resolver and create-service tests pass. Historical RED sequence not audited.
 
 **Files:**
 - Create: `src/core/resolver/create-resolver.ts`
@@ -37,12 +41,14 @@
 
 - [ ] **Step 1: Write failing resolver tests** for unknown project type, missing preset, incompatible preset, preset+explicit stack merge, monorepo agent selection, and generated-config schema validity.
 - [ ] **Step 2: Run `pnpm vitest run tests/core/resolver/create-resolver.test.ts`** and verify failures are caused by missing resolver behavior.
-- [ ] **Step 3: Implement minimal pure resolver** using `Registry`, `RepositoryStandardError`, and `RepoConfigSchema.parse()`; perform no filesystem writes and run no commands.
-- [ ] **Step 4: Route `planCreate()` through the resolver** while preserving its existing return shape and preview.
-- [ ] **Step 5: Run resolver + create-service tests**, then `pnpm typecheck`.
-- [ ] **Step 6: Commit** `refactor: extract create composition resolver`.
+- [x] **Step 3: Implement minimal pure resolver** using `Registry`, `RepositoryStandardError`, and `RepoConfigSchema.parse()`; perform no filesystem writes and run no commands.
+- [x] **Step 4: Route `planCreate()` through the resolver** while preserving its existing return shape and preview.
+- [x] **Step 5: Run resolver + create-service tests**, then `pnpm typecheck`.
+- [x] **Step 6: Commit** `refactor: extract create composition resolver`.
 
 ### Task 2: Introduce explicit execution plan and executor
+
+**Outcome:** Typed planner and executor are present (`ca4541e`, `290a35e`); current planner/executor tests pass. Historical RED sequence not audited.
 
 **Files:**
 - Create: `src/core/planning/execution-plan.ts`
@@ -60,12 +66,14 @@
 - [ ] **Step 1: Write failing planner tests** asserting deterministic ordering and generic operation metadata.
 - [ ] **Step 2: Write failing executor dispatch tests** asserting each operation reaches exactly its matching handler.
 - [ ] **Step 3: Run focused tests and verify RED.**
-- [ ] **Step 4: Implement typed execution-plan contracts and pure planner.**
-- [ ] **Step 5: Implement executor dispatch and adapt `applyCreatePlan()` to execute the plan through handlers without changing generated output.**
-- [ ] **Step 6: Run focused tests, full `pnpm test`, and `pnpm typecheck`.**
-- [ ] **Step 7: Commit** `refactor: add create execution planner`.
+- [x] **Step 4: Implement typed execution-plan contracts and pure planner.**
+- [x] **Step 5: Implement executor dispatch and adapt `applyCreatePlan()` to execute the plan through handlers without changing generated output.**
+- [x] **Step 6: Run focused tests, full `pnpm test`, and `pnpm typecheck`.**
+- [x] **Step 7: Commit** `refactor: add create execution planner`.
 
 ### Task 3: Move stack-specific generation out of create-service
+
+**Outcome:** Generation lives in `src/execution/legacy-create-generator.ts`, `src/execution/custom-stack-generator.ts`, and focused template modules rather than the proposed `src/execution/generators/` paths. Stack manifests and schema-valid preset references are present; current create/generator tests pass. Historical RED sequence not audited.
 
 **Files:**
 - Create: `src/execution/generators/create-generator.ts`
@@ -85,10 +93,10 @@
 - [ ] **Step 1: Write failing test proving `recommended-monorepo` resolves to schema-valid stack references.**
 - [ ] **Step 2: Write failing generator parity test** for current monorepo output contract.
 - [ ] **Step 3: Run focused tests and verify RED.**
-- [ ] **Step 4: Split framework-specific generation helpers out of `create-service.ts` into generator modules.**
-- [ ] **Step 5: Add minimal stack manifests needed for the current supported preset and repair composite `vite@8 + react@19` data.**
-- [ ] **Step 6: Run focused tests, full `pnpm test`, `pnpm typecheck`, and `pnpm build`.**
-- [ ] **Step 7: Commit** `refactor: extract stack generators`.
+- [x] **Step 4: Split framework-specific generation helpers out of `create-service.ts` into generator modules.**
+- [x] **Step 5: Add minimal stack manifests needed for the current supported preset and repair composite `vite@8 + react@19` data.**
+- [x] **Step 6: Run focused tests, full `pnpm test`, `pnpm typecheck`, and `pnpm build`.**
+- [x] **Step 7: Commit** `refactor: extract stack generators`.
 
 ### Task 4: Extract authentication as capabilities
 
@@ -145,7 +153,7 @@
 
 ### Task 6: Track managed files and align documentation
 
-**Status:** Complete and merged into `main` at `365ce93`. Executor records owner, version, and SHA-256 for generated files; final verification checks every recorded file. The verifier also accepts the older config-only v1 state when called without an expected generated-file inventory. The create boundary rejects capabilities without generators before writing a target. The historical checkboxes in Tasks 1–3 were not maintained, although their resolver, planner, generator modules, commits, and tests exist; this closeout verified their current behavior without rewriting that execution history.
+**Status:** Complete and merged into `main` at `365ce93`. Executor records owner, version, and SHA-256 for generated files; final verification checks every recorded file. The verifier also accepts the older config-only v1 state when called without an expected generated-file inventory. The create boundary rejects capabilities without generators before writing a target. Tasks 1–3 now mark delivered implementation and current verification; their original RED sequence remains unverified.
 
 **Files:**
 - Modify: `src/application/project-state.ts`

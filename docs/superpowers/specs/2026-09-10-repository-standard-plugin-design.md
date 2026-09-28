@@ -4,6 +4,8 @@
 
 This document is the Phase 1 architecture decision for the Repository Standard Plugin (the **plugin**). It is written for plugin maintainers, extension authors, project teams, and AI-agent integrations. It defines the platform boundaries required before implementation.
 
+Implementation through Phase 6 exists on `main`. The repository does not contain a separate record of the Phase 1 review/approval decision; implementation progress alone is not that record. See [the roadmap status audit](../../roadmap-status.md) for the distinction between delivered code and historical checklist evidence.
+
 Phase 1 deliberately contains no runtime scaffold, package manager setup, dependencies, sample application, or executable command. Phase 2 starts only after this document is reviewed and approved.
 
 ### Goals

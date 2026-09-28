@@ -10,6 +10,8 @@
 
 **Spec:** User-approved design from the 2026-09-14 conversation: `apps/web` (Vite + React), `apps/api` (Express), `packages/shared` (TypeScript), managed by pnpm workspaces.
 
+**Current status (2026-09-28):** The Monorepo workspace, Web/API/shared packages, install path, and startup guidance are present (`fe9f3ed` and later generator refactors). Current create and CLI tests pass. The original RED runs and individual per-task commit boundaries were not verified in this audit.
+
 ## Global Constraints
 
 - Keep `GeneratorRunner` as the process-execution dependency boundary.
@@ -45,11 +47,11 @@ Run: `pnpm vitest run tests/application/create-service.test.ts`
 
 Expected: FAIL because Monorepo files do not exist.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Write a private scaffold helper. The API exposes `GET /health`; root scripts include `dev`, `dev:web`, `dev:api`, `build`, and `test`.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `pnpm vitest run tests/application/create-service.test.ts`
 
@@ -89,11 +91,11 @@ Run: `pnpm vitest run tests/application/create-service.test.ts`
 
 Expected: FAIL because the existing generator only recognizes standalone Vite projects.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Run Vite from the Monorepo root, then install at that root. Keep standalone Vite commands unchanged.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `pnpm vitest run tests/application/create-service.test.ts`
 
@@ -132,11 +134,11 @@ Run: `pnpm vitest run tests/cli/main.test.ts`
 
 Expected: FAIL because create currently prints only `Created <target>.`.
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Print the three workspace paths and startup command only for a successful Monorepo create.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `pnpm vitest run tests/cli/main.test.ts`
 
@@ -155,7 +157,7 @@ git commit -m "feat: show monorepo startup guidance"
 
 - Verify: `src/application/create-service.ts`, `src/cli/main.ts`, their tests.
 
-- [ ] **Step 1: Run full verification**
+- [x] **Step 1: Run full verification**
 
 Run: `pnpm test`, `pnpm lint`, `pnpm typecheck`, `pnpm build`, and `git diff --check`.
 

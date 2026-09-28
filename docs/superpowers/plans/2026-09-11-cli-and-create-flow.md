@@ -10,6 +10,8 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-10-repository-standard-plugin-design.md`
 
+**Current status (2026-09-28):** The Phase 3 CLI foundation and Phase 4 create flow are implemented on `main`. This is a historical plan: unchecked RED steps mean the original test-first sequence was not independently verified, while unchecked implementation steps identify differences from the written plan. In particular, `repo doctor` currently checks the working directory only; its planned `--project-root`/`--registry` options and registry diagnostics are not implemented. Framework generation and capabilities were added in later work, so the original "exactly two files" create assertion no longer describes current output. The planned final push has not occurred.
+
 ## Global Constraints
 
 - Keep Core domain-, stack-, capability-, and AI-agent-agnostic; sample choices stay in `registry/`.
@@ -42,6 +44,8 @@ tests/fixtures/create-registry/**
 ```
 
 ### Task 1: Make the CLI executable and provide `--help` and `info`
+
+**Outcome:** Implemented in `0665de0`; current executable help and info work. Original RED run not audited.
 
 **Files:**
 - Modify: `package.json`
@@ -77,17 +81,17 @@ Run: `pnpm vitest run tests/cli/main.test.ts`
 
 Expected: FAIL because `runCli` does not exist.
 
-- [ ] **Step 3: Implement a minimal executable surface**
+- [x] **Step 3: Implement a minimal executable surface**
 
 Add the package `bin` entry `{"repo":"bin/repo.cjs"}`. The CommonJS bootstrap imports `../dist/src/cli/main.js` and passes `process.argv.slice(2)`. `runCli` recognizes only `--help`, `help`, and `info` at this task, prints static usage from a presentation module, and returns `0`; unknown commands return `2` with usage. `buildInfo` reads only package metadata compiled into a typed constant.
 
-- [ ] **Step 4: Verify the executable**
+- [x] **Step 4: Verify the executable**
 
 Run: `pnpm vitest run tests/cli/main.test.ts && pnpm lint && pnpm typecheck && pnpm build && node bin/repo.cjs --help`
 
 Expected: exit `0`; help contains `repo create <name>`, `repo info`, and `repo doctor`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add package.json pnpm-lock.yaml bin src/cli src/application/info-service.ts tests/cli/main.test.ts
@@ -95,6 +99,8 @@ git commit -m "feat: add repository CLI foundation"
 ```
 
 ### Task 2: Add a read-only `repo doctor`
+
+**Outcome:** Read-only config diagnostics were implemented in `45a3bc2`. The planned root/registry CLI options, registry diagnostics, and summary counts are still absent.
 
 **Files:**
 - Create: `src/application/doctor-service.ts`
@@ -131,13 +137,13 @@ Expected: FAIL because `runDoctor` does not exist.
 
 `runDoctor` calls `loadRepoConfig(projectRoot)` and maps `ENOENT` to warning `CONFIG_MISSING`; config validation errors become `CONFIG_INVALID` errors; a valid config emits `CONFIG_VALID`. When `registryRoot` is supplied, it calls `loadRegistry` and reports `REGISTRY_VALID` or an error diagnostic. `repo doctor [--project-root <path>] [--registry <path>]` prints summary counts and returns `1` only when errors exist.
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run: `pnpm vitest run tests/application/doctor-service.test.ts tests/cli/main.test.ts && pnpm lint && pnpm typecheck`
 
 Expected: exit `0`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/application/doctor-service.ts src/cli/main.ts tests/application/doctor-service.test.ts tests/cli/main.test.ts
@@ -145,6 +151,8 @@ git commit -m "feat: add read-only repository doctor"
 ```
 
 ### Task 3: Add extension-provided project types and safe create planning
+
+**Outcome:** Registry-backed, no-write planning is implemented. The current name rule is stricter than the original expression, and the resolver is under `src/core/resolver/` rather than the proposed registry path. Original RED run not audited.
 
 **Files:**
 - Create: `registry/project-types/empty/manifest.yaml`
@@ -183,13 +191,13 @@ Expected: FAIL because `planCreate` does not exist.
 
 Resolve `project-type` and optional `preset` via `Registry.get`; verify the preset manifest declares compatible project type in `compatibility.projectTypes`. Validate name with `/^[a-z0-9][a-z0-9-]*$/i`; reject an existing target. Construct a `RepoConfig` from selected extension references and return operations `write-config` and `write-managed-state`. The core does not select a stack itself; empty/project preset data lives in `registry/`.
 
-- [ ] **Step 4: Verify plan behavior**
+- [x] **Step 4: Verify plan behavior**
 
 Run: `pnpm vitest run tests/application/create-service.test.ts && pnpm lint && pnpm typecheck`
 
 Expected: exit `0`; plan creation leaves no target directory.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add registry src/core/registry/project-type-resolver.ts src/application/create-service.ts tests/application/create-service.test.ts tests/fixtures/create-registry
@@ -197,6 +205,8 @@ git commit -m "feat: plan extension-driven repository creation"
 ```
 
 ### Task 4: Apply a confirmed create plan and expose `repo create`
+
+**Outcome:** The confirmed create pipeline, atomic config/state writes, verification, and rollback are implemented. Later phases expanded generated output beyond the two files specified here; the original RED run was not audited.
 
 **Files:**
 - Create: `src/application/project-state.ts`
@@ -241,7 +251,7 @@ Run: `pnpm vitest run tests/application/create-service.test.ts tests/cli/main.te
 
 Expected: all tests pass; generated repo contains exactly the two managed files and no framework/application code.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/application/create-service.ts src/application/project-state.ts src/cli/main.ts tests/application/create-service.test.ts tests/cli/main.test.ts package.json pnpm-lock.yaml
@@ -249,6 +259,8 @@ git commit -m "feat: create managed repositories from reviewed plans"
 ```
 
 ### Task 5: Document CLI use and run clean verification
+
+**Outcome:** README documents the current commands and supported project generation. The examples below include unimplemented doctor flags, and the requested clean-checkout/push step remains open.
 
 **Files:**
 - Modify: `README.md`
