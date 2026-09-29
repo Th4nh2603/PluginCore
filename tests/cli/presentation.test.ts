@@ -89,8 +89,21 @@ describe("formatCreateSuccess", () => {
     const message = formatCreateSuccess({ targetDirectory: "D:/work/platform", projectType: "monorepo" }, false);
 
     expect(message).toContain("Project created and dependencies installed.");
-    expect(message).toContain('cd "D:/work/platform"');
-    expect(message).toContain("pnpm dev");
+    expect(message).toContain('cd "D:/work/platform"\n  docker compose up -d\n  pnpm --filter ./apps/api db:push\n  pnpm dev');
+  });
+
+  it("shows the database setup command for API projects", () => {
+    const message = formatCreateSuccess({ targetDirectory: "/work/api", projectType: "api" }, false);
+
+    expect(message).toContain('cd "/work/api"\n  docker compose up -d\n  pnpm db:push\n  pnpm dev');
+  });
+
+  it("does not show database setup for Web projects", () => {
+    const message = formatCreateSuccess({ targetDirectory: "/work/web", projectType: "web" }, false);
+
+    expect(message).toContain('cd "/work/web"');
+    expect(message).not.toContain("docker compose");
+    expect(message).not.toContain("db:push");
   });
 
   it("uses success color when terminal color is enabled", () => {

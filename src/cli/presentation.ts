@@ -89,9 +89,11 @@ export const formatCreateSuccess = ({ targetDirectory, projectType }: CreateSucc
   const heading = dependenciesInstalled
     ? "SUCCESS  Project created and dependencies installed."
     : "SUCCESS  Project created successfully.";
-  const nextSteps = dependenciesInstalled
-    ? [`cd "${targetDirectory}"`, "pnpm dev"]
-    : [`cd "${targetDirectory}"`];
+  const nextSteps = projectType === "monorepo"
+    ? [`cd "${targetDirectory}"`, "docker compose up -d", "pnpm --filter ./apps/api db:push", "pnpm dev"]
+    : projectType === "api"
+      ? [`cd "${targetDirectory}"`, "docker compose up -d", "pnpm db:push", "pnpm dev"]
+      : [`cd "${targetDirectory}"`];
 
   return [
     paint(heading, 92, color),
