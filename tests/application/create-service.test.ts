@@ -21,6 +21,11 @@ afterEach(async () => {
 });
 
 describe("planCreate", () => {
+  it.each(["My-App", "demo-", "a".repeat(101)])("rejects invalid project name %s", async (name) => {
+    const root = await makeRoot();
+    await expect(planCreate({ name, projectType: "empty", targetDirectory: path.join(root, name), registryRoot: path.resolve("registry"), stack: {}, capabilities: [], agentMode: "none" }))
+      .rejects.toMatchObject({ code: "CONFIG_INVALID" });
+  });
   it("resolves agent modes and renders only selected roles", async () => {
     const root = await makeRoot();
     const targetDirectory = path.join(root, "platform");
@@ -139,8 +144,12 @@ describe("planCreate", () => {
     expect(plan.config.agents).toEqual({ mode: "automatic", enabled: ["frontend@1.0.0", "backend@1.0.0", "shared@1.0.0", "reviewer@1.0.0"], adapters: ["codex"] });
     expect(existsSync(path.join(targetDirectory, "pnpm-workspace.yaml"))).toBe(true);
     expect(await readFile(path.join(targetDirectory, "docker-compose.yml"), "utf8")).toContain("postgres:16");
+    expect(await readFile(path.join(targetDirectory, "docker-compose.yml"), "utf8")).toContain("127.0.0.1:5432:5432");
+    expect(await readFile(path.join(targetDirectory, ".gitignore"), "utf8")).toContain("node_modules/");
     expect(await readFile(path.join(targetDirectory, "apps", "api", ".env.example"), "utf8")).toContain("JWT_SECRET");
     expect(await readFile(path.join(targetDirectory, "apps", "api", ".env"), "utf8")).toContain("DATABASE_URL=postgresql://app:app@localhost:5432/app?schema=public");
+    const secret = (await readFile(path.join(targetDirectory, "apps", "api", ".env"), "utf8")).match(/^JWT_SECRET=(.+)$/m)?.[1];
+    expect(secret).toMatch(/^[0-9a-f]{64}$/);
     expect(await readFile(path.join(targetDirectory, "apps", "api", ".gitignore"), "utf8")).toContain(".env");
     expect(await readFile(path.join(targetDirectory, "apps", "api", "prisma", "schema.prisma"), "utf8")).toContain("model User");
     const authRouter = await readFile(path.join(targetDirectory, "apps", "api", "src", "auth", "router.ts"), "utf8");

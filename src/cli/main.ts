@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 import select from "@inquirer/select";
 
-import { applyCreatePlan, planCreate } from "../application/create-service.js";
+import { applyCreatePlan, planCreate, validateCreateDestination } from "../application/create-service.js";
 import { runDoctor } from "../application/doctor-service.js";
 import type { GeneratorRunner } from "../application/generator-runner.js";
 import { buildInfo } from "../application/info-service.js";
@@ -206,6 +206,10 @@ const runCommand = async (argv: readonly string[], io: CliIo): Promise<number> =
     const color = io.color ?? (process.stdout.isTTY === true && process.env.NO_COLOR === undefined);
     const interactive = io.prompt;
     const name = command.name ?? (interactive === undefined ? undefined : await interactive.input("Repository name"));
+    const targetDirectory = command.options.get("--target");
+    if (name !== undefined && (targetDirectory === undefined || typeof targetDirectory === "string")) {
+      validateCreateDestination(name, typeof targetDirectory === "string" ? targetDirectory : path.resolve(process.cwd(), name));
+    }
     const registryRoot = command.options.get("--registry") ?? defaultRegistryRoot();
     const registry = typeof registryRoot === "string" ? await loadRegistry(registryRoot) : undefined;
     const projectType = command.options.get("--type") ?? (interactive === undefined || registry === undefined
@@ -214,7 +218,6 @@ const runCommand = async (argv: readonly string[], io: CliIo): Promise<number> =
           name: conciseProjectTypeName(item.displayName),
           value: item.id
         }))));
-    const targetDirectory = command.options.get("--target");
 
     if (name === undefined || typeof projectType !== "string" || (targetDirectory !== undefined && typeof targetDirectory !== "string") || typeof registryRoot !== "string" || registry === undefined) {
       io.write("Create requires a repository name and project type.");

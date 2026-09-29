@@ -46,17 +46,22 @@ export interface CreatePlan {
   readonly agentResolution: AgentResolution;
 }
 
-const validName = /^[a-z0-9][a-z0-9-]*$/i;
+const validName = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+export const validateCreateDestination = (name: string, targetDirectory: string): string => {
+  if (name.length > 100 || !validName.test(name)) {
+    throw new RepositoryStandardError("CONFIG_INVALID", "Project name must be 1–100 lowercase letters, numbers, or internal hyphens.");
+  }
+
+  const resolvedTarget = path.resolve(targetDirectory);
+  if (existsSync(resolvedTarget)) {
+    throw new RepositoryStandardError("CONFIG_INVALID", `Target directory already exists: ${resolvedTarget}.`);
+  }
+  return resolvedTarget;
+};
 
 export const planCreate = async (input: CreateInput): Promise<CreatePlan> => {
-  if (!validName.test(input.name)) {
-    throw new RepositoryStandardError("CONFIG_INVALID", "Project name must use letters, numbers, and hyphens.");
-  }
-
-  const targetDirectory = path.resolve(input.targetDirectory);
-  if (existsSync(targetDirectory)) {
-    throw new RepositoryStandardError("CONFIG_INVALID", `Target directory already exists: ${targetDirectory}.`);
-  }
+  const targetDirectory = validateCreateDestination(input.name, input.targetDirectory);
 
   const registry = await loadRegistry(input.registryRoot);
   const resolution = resolveCreateComposition({

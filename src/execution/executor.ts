@@ -33,7 +33,11 @@ export const executePlan = async (plan: ExecutionPlan, handlers: ExecutionHandle
     await mkdir(targetDirectory);
     ownsTarget = true;
   } catch (error) {
-    throw new RepositoryStandardError("CONFIG_INVALID", `Target directory already exists: ${targetDirectory}.`, { cause: error });
+    const code = (error as NodeJS.ErrnoException).code;
+    const message = code === "EEXIST" ? `Target directory already exists: ${targetDirectory}.`
+      : code === "ENOENT" ? `Parent directory does not exist: ${path.dirname(targetDirectory)}.`
+        : `Cannot create target directory: ${targetDirectory}.`;
+    throw new RepositoryStandardError("CONFIG_INVALID", message, { cause: error });
   }
 
   const generatedFiles = new Set<string>();

@@ -72,6 +72,15 @@ describe("executePlan", () => {
       { path: "shared.txt", owner: "capability:auth-custom", version: "2.0.0", hash: expect.stringMatching(/^[a-f0-9]{64}$/u) }
     ]);
   });
+  it("reports a missing parent directory accurately", async () => {
+    const plan = await makePlan();
+    const targetDirectory = path.join(path.dirname(plan.targetDirectory), "missing", "demo");
+    await expect(executePlan({ ...plan, targetDirectory }, {
+      generate: async () => ({ files: [] }), writeConfig: async () => undefined,
+      verify: async () => undefined, recordState: async () => undefined
+    })).rejects.toThrow(`Parent directory does not exist: ${path.dirname(targetDirectory)}.`);
+    expect(existsSync(targetDirectory)).toBe(false);
+  });
   it("forwards generated files and both verification phases", async () => {
     const plan = await makePlan();
     const phases: string[] = [];

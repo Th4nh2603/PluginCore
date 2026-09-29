@@ -131,6 +131,26 @@ describe("runCli", () => {
     }
   });
 
+  it("rejects an invalid name before opening the Monorepo wizard", async () => {
+    const messages: string[] = [];
+    await expect(runCli(["create", "My-App"], {
+      write: () => undefined,
+      prompt: { input: async () => "unused", confirm: async () => false, select: async (message) => { messages.push(message); return "invalid"; } }
+    })).rejects.toThrow("Project name");
+    expect(messages).toEqual([]);
+  });
+
+  it("rejects an existing target before opening the Monorepo wizard", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-existing-"));
+    const messages: string[] = [];
+    try {
+      await expect(runCli(["create", "demo", "--type", "monorepo", "--target", root], {
+        write: () => undefined,
+        prompt: { input: async () => "unused", confirm: async () => false, select: async (message) => { messages.push(message); return "invalid"; } }
+      })).rejects.toThrow("Target directory already exists");
+      expect(messages).toEqual([]);
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
   it("explains a task-specific agent selection from a generated project", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-agent-explain-"));
     const targetDirectory = path.join(root, "platform");
