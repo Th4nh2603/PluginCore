@@ -10,6 +10,64 @@ import { runCli } from "../../src/cli/main.js";
 import type { SelectOption } from "../../src/cli/presentation.js";
 
 describe("recommended create wizard", () => {
+  it("requires a hidden-password prompt for interactive Custom Authentication", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "repo-initial-no-secret-"));
+    const target = path.join(root, "platform");
+    try {
+      await expect(runCli(["create", "platform", "--type", "monorepo", "--target", target], {
+        write: () => undefined,
+        prompt: {
+          input: async () => "alice", confirm: async () => false,
+          select: async (message) => ({ "Agent setup": "none", "Start from": "recommended", "Configure stack": "continue", Review: "install" })[message] ?? "invalid"
+        },
+        generatorRunner: { run: async () => undefined }
+      })).rejects.toThrow("hidden password");
+      expect(existsSync(target)).toBe(false);
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+  it("asks for an initial account after Install and writes an ignored hash", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "repo-initial-wizard-"));
+    const target = path.join(root, "platform");
+    const prompts: string[] = [];
+    try {
+      expect(await runCli(["create", "platform", "--type", "monorepo", "--target", target], {
+        write: () => undefined,
+        prompt: {
+          input: async (message) => { prompts.push(message); return "Alice_1"; },
+          secret: async (message) => { prompts.push(message); return "long-enough-password"; },
+          confirm: async () => false,
+          select: async (message) => ({ "Agent setup": "none", "Start from": "recommended", "Configure stack": "continue", Review: "install" })[message] ?? "invalid"
+        },
+        generatorRunner: { run: async () => undefined }
+      })).toBe(0);
+      expect(prompts).toEqual(["Initial username", "Password", "Confirm password"]);
+      const bootstrap = await readFile(path.join(target, ".repo-standard", "initial-user.json"), "utf8");
+      expect(bootstrap).toContain('"username":"alice_1"');
+      expect(bootstrap).not.toContain("long-enough-password");
+      expect(await readFile(path.join(target, ".gitignore"), "utf8")).toContain(".repo-standard/initial-user.json");
+      expect(await readFile(path.join(target, "repo.config.yaml"), "utf8")).not.toContain("alice_1");
+      expect(await readFile(path.join(target, ".repo-standard", "managed-state.yaml"), "utf8")).not.toContain("initial-user.json");
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
+
+  it("rejects mismatched account confirmation before creating the project", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "repo-initial-mismatch-"));
+    const target = path.join(root, "platform");
+    let secretCount = 0;
+    try {
+      await expect(runCli(["create", "platform", "--type", "monorepo", "--target", target], {
+        write: () => undefined,
+        prompt: {
+          input: async () => "alice",
+          secret: async () => ++secretCount === 1 ? "long-enough-password" : "different-password",
+          confirm: async () => false,
+          select: async (message) => ({ "Agent setup": "none", "Start from": "recommended", "Configure stack": "continue", Review: "install" })[message] ?? "invalid"
+        },
+        generatorRunner: { run: async () => undefined }
+      })).rejects.toThrow("confirmation");
+      expect(existsSync(target)).toBe(false);
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
   it("edits a preset in place and installs only after Review", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-unified-"));
     const targetDirectory = path.join(root, "platform");
@@ -20,6 +78,7 @@ describe("recommended create wizard", () => {
         write: (line) => output.push(line),
         prompt: {
           input: async () => "unused",
+          secret: async () => "long-enough-password",
           confirm: async () => false,
           select: async (message) => {
             messages.push(message);
@@ -128,6 +187,7 @@ describe("recommended create wizard", () => {
         write: (line: string) => output.push(line),
         prompt: {
           input: async () => "unused",
+          secret: async () => "long-enough-password",
           select: async (message: string, choices: readonly SelectOption[]) => {
             selectMessages.push(message);
             if (message === "Agent setup") return "automatic";
@@ -181,6 +241,7 @@ describe("recommended create wizard", () => {
         write: (line) => output.push(line),
         prompt: {
           input: async () => "unused",
+          secret: async () => { throw new Error("Clerk must not ask for a password"); },
           select: async (message) => {
             if (message === "Agent setup") return "automatic";
             if (message === "Configure stack") return "continue";

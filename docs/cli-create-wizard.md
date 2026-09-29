@@ -55,6 +55,8 @@ Trước menu Review, CLI in các agent đã chọn và lý do từ resolver. `r
 
 Nếu chỉnh preset, `repo.config.yaml` vẫn lưu ID preset cùng các giá trị stack đã ghi đè. Nếu bắt đầu từ Custom thì không có preset. CLI chỉ ghi file sau khi chọn **Install**.
 
+Với Monorepo dùng Custom Authentication, sau **Install** CLI hỏi `Initial username`, mật khẩu ẩn và xác nhận mật khẩu ẩn. Username được đưa về chữ thường, dài 3–32 ký tự; mật khẩu dài 12–128 ký tự. Nếu nhập sai, CLI dừng trước khi tạo project. Mật khẩu không được ghi vào cấu hình hoặc managed state. File `.repo-standard/initial-user.json` chứa hash scrypt, có quyền `0600` và nằm trong `.gitignore` của project. Sau khi chạy PostgreSQL và `pnpm --filter ./apps/api db:push`, API tạo user một lần trước khi lắng nghe rồi xóa file. Khi DB lỗi, file được giữ để thử lại. Clerk và chế độ không tương tác không hỏi và không tạo user ban đầu.
+
 Lựa chọn Authentication được lưu thành `auth-custom` hoặc `auth-clerk` trong `composition.capabilities`. Trường `composition.authentication` cũng được ghi để giữ tương thích với cấu hình cũ. CLI kiểm tra capability có executor trước khi tạo thư mục project.
 
 ## 6. Web, API và Empty

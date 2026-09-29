@@ -1,6 +1,6 @@
 import type { FrontendAuthentication } from "../templates/frontend.js";
 
-const apiClient = `export interface User { id: string; email: string; }
+const apiClient = `export interface User { id: string; username: string; }
 const origin = import.meta.env.VITE_API_ORIGIN ?? "http://localhost:3001";
 export const request = async <T>(path: string, body?: unknown): Promise<T> => {
   const response = await fetch(origin + path, {
@@ -19,7 +19,7 @@ const reactAuth = `import { useEffect, useState, type FormEvent } from "react";
 import { request, type User } from "./api";
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -28,8 +28,8 @@ export default function App() {
   const submit = async (event: FormEvent) => {
     event.preventDefault(); setBusy(true); setError("");
     try {
-      if (registering) await request("/auth/register", { email, password });
-      const result = await request<{ user: User }>("/auth/login", { email, password });
+      if (registering) await request("/auth/register", { username, password });
+      const result = await request<{ user: User }>("/auth/login", { username, password });
       setUser(result.user); setPassword("");
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Unable to sign in"); }
     finally { setBusy(false); }
@@ -40,8 +40,8 @@ export default function App() {
     catch { setError("Unable to sign out. Try again."); }
   };
   return <main><p className="eyebrow">Your workspace</p><h1>{user ? "Welcome back" : registering ? "Create account" : "Sign in"}</h1>
-    {user ? <section><p>{user.email}</p><button onClick={() => void logout()}>Sign out</button></section> :
-      <form onSubmit={(event) => void submit(event)}><label>Email<input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} required /></label>
+    {user ? <section><p>{user.username}</p><button onClick={() => void logout()}>Sign out</button></section> :
+      <form onSubmit={(event) => void submit(event)}><label>Username<input type="text" autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} required /></label>
         <label>Password<input type="password" autoComplete={registering ? "new-password" : "current-password"} minLength={12} maxLength={128} value={password} onChange={(event) => setPassword(event.target.value)} required /></label>
         <button disabled={busy}>{busy ? "Please wait…" : registering ? "Create account" : "Sign in"}</button>
         <button type="button" className="secondary" onClick={() => setRegistering(!registering)}>{registering ? "Already have an account?" : "Create an account"}</button></form>}
@@ -53,13 +53,13 @@ const vueAuth = `<script setup lang="ts">
 import { onMounted, ref } from "vue";
 import { request, type User } from "./api";
 const user = ref<User | null>(null);
-const email = ref(""); const password = ref(""); const error = ref("");
+const username = ref(""); const password = ref(""); const error = ref("");
 const busy = ref(false); const registering = ref(false);
 onMounted(async () => { try { user.value = (await request<{ user: User }>("/auth/me")).user; } catch { /* signed out */ } });
 const submit = async () => {
   busy.value = true; error.value = "";
   try {
-    const credentials = { email: email.value, password: password.value };
+    const credentials = { username: username.value, password: password.value };
     if (registering.value) await request("/auth/register", credentials);
     user.value = (await request<{ user: User }>("/auth/login", credentials)).user;
     password.value = "";
@@ -74,9 +74,9 @@ const logout = async () => {
 </script>
 <template>
   <main><p class="eyebrow">Your workspace</p><h1>{{ user ? 'Welcome back' : registering ? 'Create account' : 'Sign in' }}</h1>
-    <section v-if="user"><p>{{ user.email }}</p><button @click="logout">Sign out</button></section>
+    <section v-if="user"><p>{{ user.username }}</p><button @click="logout">Sign out</button></section>
     <form v-else @submit.prevent="submit">
-      <label>Email<input v-model="email" type="email" autocomplete="email" required /></label>
+      <label>Username<input v-model="username" type="text" autocomplete="username" required /></label>
       <label>Password<input v-model="password" type="password" :autocomplete="registering ? 'new-password' : 'current-password'" minlength="12" maxlength="128" required /></label>
       <button :disabled="busy">{{ busy ? 'Please wait…' : registering ? 'Create account' : 'Sign in' }}</button>
       <button type="button" class="secondary" @click="registering = !registering">{{ registering ? 'Already have an account?' : 'Create an account' }}</button>

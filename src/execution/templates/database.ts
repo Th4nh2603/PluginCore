@@ -6,7 +6,7 @@ export default defineConfig({ schema: "./src/db/schema.ts", out: "./drizzle", di
   "src/db/schema.ts": `import { pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
-  email: text("email").notNull().unique(),
+  username: text("username").notNull().unique(),
   passwordHash: text("password_hash"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow()
 });
@@ -21,9 +21,9 @@ export const closeDatabase = () => pool.end();
   "src/db/users.ts": `import { eq } from "drizzle-orm";
 import { db } from "./index.js";
 import { users } from "./schema.js";
-export const findUser = async (email: string) => (await db.select().from(users).where(eq(users.email, email)).limit(1))[0];
-export const createUser = async (email: string, passwordHash: string) => {
-  const [user] = await db.insert(users).values({ email, passwordHash }).returning();
+export const findUser = async (username: string) => (await db.select().from(users).where(eq(users.username, username)).limit(1))[0];
+export const createUser = async (username: string, passwordHash: string) => {
+  const [user] = await db.insert(users).values({ username, passwordHash }).returning();
   if (!user) throw new Error("Unable to create account");
   return user;
 };
@@ -38,7 +38,7 @@ datasource db {
 }
 model User {
   id String @id @default(uuid())
-  email String @unique
+  username String @unique
   passwordHash String?
   createdAt DateTime @default(now())
 }
@@ -48,7 +48,7 @@ export const db = new PrismaClient();
 export const closeDatabase = () => db.$disconnect();
 `,
   "src/db/users.ts": `import { db } from "./index.js";
-export const findUser = (email: string) => db.user.findUnique({ where: { email } });
-export const createUser = (email: string, passwordHash: string) => db.user.create({ data: { email, passwordHash } });
+export const findUser = (username: string) => db.user.findUnique({ where: { username } });
+export const createUser = (username: string, passwordHash: string) => db.user.create({ data: { username, passwordHash } });
 `
 };

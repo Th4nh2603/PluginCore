@@ -27,9 +27,9 @@ const writeMonorepoScaffold = async (targetDirectory: string, name: string): Pro
     "pnpm-workspace.yaml": "packages:\n  - apps/*\n  - packages/*\n",
     "tsconfig.json": `${JSON.stringify({ compilerOptions: { target: "ES2022", module: "NodeNext", moduleResolution: "NodeNext", strict: true, skipLibCheck: true } }, null, 2)}\n`,
     "docker-compose.yml": "services:\n  db:\n    image: postgres:16-alpine\n    environment:\n      POSTGRES_DB: app\n      POSTGRES_USER: app\n      POSTGRES_PASSWORD: app\n    ports:\n      - \"127.0.0.1:5432:5432\"\n    volumes:\n      - postgres-data:/var/lib/postgresql/data\n\nvolumes:\n  postgres-data:\n",
-    ".gitignore": "node_modules/\ndist/\n.env\n.env.local\n",
+    ".gitignore": "node_modules/\ndist/\n.env\n.env.local\n.repo-standard/initial-user.json\n",
     "apps/api/.gitignore": ".env\n",
-    "apps/api/prisma/schema.prisma": "generator client {\n  provider = \"prisma-client-js\"\n}\n\ndatasource db {\n  provider = \"postgresql\"\n  url      = env(\"DATABASE_URL\")\n}\n\nmodel User {\n  id           String   @id @default(cuid())\n  email        String   @unique\n  passwordHash String?\n  createdAt    DateTime @default(now())\n  updatedAt    DateTime @updatedAt\n}\n",
+    "apps/api/prisma/schema.prisma": "generator client {\n  provider = \"prisma-client-js\"\n}\n\ndatasource db {\n  provider = \"postgresql\"\n  url      = env(\"DATABASE_URL\")\n}\n\nmodel User {\n  id           String   @id @default(cuid())\n  username        String   @unique\n  passwordHash String?\n  createdAt    DateTime @default(now())\n  updatedAt    DateTime @updatedAt\n}\n",
     "apps/api/tsconfig.json": `${JSON.stringify({ extends: "../../tsconfig.json", compilerOptions: { rootDir: "src", outDir: "dist" }, include: ["src"] }, null, 2)}\n`,
     "packages/shared/package.json": `${JSON.stringify({
       name: `${packageScope}/shared`, private: true, type: "module",

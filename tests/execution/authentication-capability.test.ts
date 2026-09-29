@@ -9,6 +9,32 @@ import { applyCreatePlan, planCreate } from "../../src/application/create-servic
 import { generateCreateScaffold } from "../../src/execution/legacy-create-generator.js";
 
 describe("authentication capability generation", () => {
+  it.each([
+    ["recommended-monorepo", {}, "apps/api/prisma/schema.prisma", "apps/api/src/auth/router.ts", "apps/web/src/auth/LoginPage.tsx"],
+    [undefined, { frontend: "vue@3.0.0", backend: "fastify@5.0.0", orm: "drizzle@0.45.0" }, "apps/api/src/db/schema.ts", "apps/api/src/auth/service.ts", "apps/web/src/App.vue"]
+  ])("generates username authentication for %s stack", async (preset, stack, schemaPath, authPath, webPath) => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "auth-username-"));
+    const target = path.join(root, "platform");
+    try {
+      const plan = await planCreate({
+        name: "platform", projectType: "monorepo", targetDirectory: target,
+        registryRoot: path.resolve("registry"), stack, capabilities: [], agentMode: "none",
+        ...(preset === undefined ? {} : { preset }), authentication: "custom"
+      });
+      await applyCreatePlan(plan, { run: async () => undefined });
+      const schema = await readFile(path.join(target, schemaPath), "utf8");
+      const auth = await readFile(path.join(target, authPath), "utf8");
+      const web = await readFile(path.join(target, webPath), "utf8");
+      expect(schema).toContain("username");
+      expect(schema).not.toContain("email");
+      expect(auth).toContain("username");
+      expect(auth).not.toContain("email");
+      expect(web).toContain("Username");
+      expect(web).not.toContain("Email");
+      const server = await readFile(path.join(target, preset === undefined ? "apps/api/src/app.ts" : "apps/api/src/server.ts"), "utf8");
+      expect(server).not.toMatch(/(?:console|log)\.error\(error\)/);
+    } finally { await rm(root, { recursive: true, force: true }); }
+  });
   it("rejects a registered authentication capability with no executor before creating files", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "auth-capability-unsupported-"));
     const registryRoot = path.join(root, "registry");

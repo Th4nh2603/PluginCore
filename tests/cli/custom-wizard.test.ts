@@ -19,6 +19,7 @@ describe("Custom stack wizard", () => {
         generatorRunner: { run: async () => undefined },
         prompt: {
           input: async () => "unused",
+          secret: async () => "long-enough-password",
           confirm: async () => { throw new Error("Use the installation menu"); },
           select: async (message, choices) => {
             prompts.push(message);

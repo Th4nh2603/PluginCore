@@ -1,11 +1,13 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { createInterface } from "node:readline/promises";
+import { Writable } from "node:stream";
 import { fileURLToPath } from "node:url";
 
 import select from "@inquirer/select";
 
 import { applyCreatePlan, planCreate, validateCreateDestination } from "../application/create-service.js";
+import { prepareInitialUser, writeInitialUser, type InitialUser } from "../application/initial-user.js";
 import { runDoctor } from "../application/doctor-service.js";
 import type { GeneratorRunner } from "../application/generator-runner.js";
 import { buildInfo } from "../application/info-service.js";
@@ -40,6 +42,7 @@ export interface CliIo {
 
 export interface CliPrompt {
   input(message: string): Promise<string>;
+  secret?(message: string): Promise<string>;
   select(message: string, choices: readonly SelectOption[]): Promise<string>;
   confirm(message: string): Promise<boolean>;
 }
@@ -58,6 +61,13 @@ const terminalPrompt = (color: boolean): CliPrompt => {
   };
   return {
     input: (message) => question(`${formatPrompt(message, color)}: `),
+    secret: async (message) => {
+      const sink = new Writable({ write: (_chunk, _encoding, callback) => callback() });
+      const terminal = createInterface({ input: process.stdin, output: sink, terminal: true });
+      process.stdout.write(`${formatPrompt(message, color)}: `);
+      try { return await terminal.question(""); }
+      finally { terminal.close(); sink.destroy(); process.stdout.write("\n"); }
+    },
     select: async (message, choices) => {
       const promptChoices = choices.map((choice, index) => {
         const [name, ...description] = formatSelectOption(index + 1, choice, color).split("\n");
@@ -72,6 +82,21 @@ const terminalPrompt = (color: boolean): CliPrompt => {
     },
     confirm: async (message) => /^(y|yes)$/i.test(await question(`${formatPrompt(message, color)} [y/N]: `))
   };
+};
+
+const promptInitialUser = async (authentication: string | undefined, prompt: CliPrompt | undefined): Promise<InitialUser | undefined> => {
+  if (authentication !== "custom" || prompt === undefined) return undefined;
+  if (prompt.secret === undefined) throw new Error("Interactive Custom Authentication requires a hidden password prompt.");
+  const username = await prompt.input("Initial username");
+  const password = await prompt.secret("Password");
+  const confirmation = await prompt.secret("Confirm password");
+  return prepareInitialUser(username, password, confirmation);
+};
+
+const saveInitialUser = async (targetDirectory: string, account: InitialUser | undefined, io: CliIo): Promise<void> => {
+  if (account === undefined) return;
+  await writeInitialUser(targetDirectory, account);
+  io.write("Initial account saved. Start PostgreSQL and apply the database schema before starting the API.");
 };
 
 const isCompatible = (manifest: ExtensionManifest, projectType: string): boolean => {
@@ -352,7 +377,9 @@ const runCommand = async (argv: readonly string[], io: CliIo): Promise<number> =
           io.write(formatWarning("Creation cancelled. No files were written.", color));
           return 2;
         }
+        const account = await promptInitialUser(plan.config.composition.authentication, interactive);
         await applyCreatePlan(plan, io.generatorRunner);
+        await saveInitialUser(plan.targetDirectory, account, io);
         io.write(formatCreateSuccess({ targetDirectory: plan.targetDirectory, projectType }, color));
         return 0;
       }
@@ -484,7 +511,9 @@ const runCommand = async (argv: readonly string[], io: CliIo): Promise<number> =
       return 2;
     }
 
+    const account = await promptInitialUser(plan.config.composition.authentication, interactive);
     await applyCreatePlan(plan, io.generatorRunner);
+    await saveInitialUser(plan.targetDirectory, account, io);
     io.write(formatCreateSuccess({ targetDirectory: plan.targetDirectory, projectType: plan.config.project.type }, color));
     return 0;
   }

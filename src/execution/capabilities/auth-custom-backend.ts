@@ -1,5 +1,6 @@
 import type { BackendAuthentication } from "../templates/backend.js";
 import { authenticationFiles } from "./auth-custom-files.js";
+import { initialUserBootstrapSource } from "./auth-custom-bootstrap.js";
 
 const fastifyRoutes = `  await app.register(cookie);
   await app.register(rateLimit, { global: false });
@@ -14,7 +15,7 @@ const fastifyRoutes = `  await app.register(cookie);
   app.setErrorHandler((error, request, reply) => {
     if (error instanceof AuthError) return reply.code(error.status).send({ error: error.message });
     if (error instanceof Error && "statusCode" in error && error.statusCode === 429) return reply.code(429).send({ error: "Too many requests" });
-    request.log.error(error);
+    request.log.error("Authentication request failed");
     return reply.code(500).send({ error: "Unable to complete request" });
   });`;
 const expressRoutes = `  app.use(cookieParser());
@@ -36,5 +37,7 @@ export const customBackendAuthentication: BackendAuthentication = {
   expressImports: 'import cookieParser from "cookie-parser";\nimport rateLimit from "express-rate-limit";\n',
   expressRoutes: expressRoutes + "\n",
   expressError: '    if (error instanceof AuthError) { response.status(error.status).json({ error: error.message }); return; }',
-  files: authenticationFiles
+  files: { ...authenticationFiles, "src/auth/bootstrap.ts": initialUserBootstrapSource },
+  serverImports: 'import { bootstrapInitialUser } from "./auth/bootstrap.js";\nimport { findUser, createUser } from "./db/users.js";\n',
+  beforeListen: 'await bootstrapInitialUser(findUser, createUser);\n'
 };

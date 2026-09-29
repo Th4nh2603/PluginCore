@@ -185,6 +185,7 @@ describe("runCli", () => {
       expect(exitCode).toBe(0);
       expect((await readConfig(targetDirectory)).agents).toEqual({ mode: "none", enabled: [], adapters: [] });
       expect(existsSync(path.join(targetDirectory, "AGENTS.md"))).toBe(false);
+      expect(existsSync(path.join(targetDirectory, ".repo-standard", "initial-user.json"))).toBe(false);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -199,6 +200,7 @@ describe("runCli", () => {
         write: () => undefined,
         prompt: {
           input: async () => "unused",
+          secret: async () => "long-enough-password",
           confirm: async () => false,
           select: async (message) => {
             messages.push(message);
@@ -224,6 +226,7 @@ describe("runCli", () => {
         write: () => undefined,
         prompt: {
           input: async (message) => message === "Agent IDs (comma-separated)" ? "backend,reviewer" : "unused",
+          secret: async () => "long-enough-password",
           confirm: async () => false,
           select: async (message) => ({ "Agent setup": "custom", "Start from": "recommended", "Configure stack": "continue", Review: "install" })[message] ?? "invalid"
         },
@@ -424,6 +427,7 @@ describe("runCli", () => {
         write: (line: string) => output.push(line),
         prompt: {
           input: async () => "unused",
+          secret: async () => "long-enough-password",
           select: async (message: string) => {
             if (message === "Agent setup") return "automatic";
             if (message === "Project type") return "monorepo";

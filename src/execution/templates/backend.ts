@@ -10,6 +10,8 @@ export interface BackendAuthentication {
   readonly expressRoutes: string;
   readonly expressError: string;
   readonly files: Readonly<Record<string, string>>;
+  readonly serverImports?: string;
+  readonly beforeListen?: string;
 }
 
 export const backendFiles = (name: string, backend: string, orm: string, authentication?: BackendAuthentication): Record<string, string> => {
@@ -49,7 +51,7 @@ export const buildApp = () => {
 ${authentication?.expressRoutes ?? "\n"}
   app.use((error: unknown, _request: express.Request, response: express.Response, _next: express.NextFunction) => {
 ${authentication?.expressError ?? ""}
-    console.error(error);
+    console.error("Request failed");
     response.status(500).json({ error: "Unable to complete request" });
   });
   return app;
@@ -68,6 +70,8 @@ ${authentication?.expressError ?? ""}
     "tsconfig.json": JSON.stringify({ compilerOptions: { target: "ES2022", module: "NodeNext", moduleResolution: "NodeNext", strict: true, skipLibCheck: true, esModuleInterop: true, rootDir: "src", outDir: "dist" }, include: ["src"] }, null, 2),
     "src/app.ts": fastify ? fastifyApp : expressApp,
     "src/server.ts": `import { buildApp } from "./app.js";
+${authentication?.serverImports ?? ""}
+${authentication?.beforeListen ?? ""}
 const app = await buildApp();
 const port = Number(process.env.PORT ?? 3001);
 ${fastify ? 'await app.listen({ port, host: "127.0.0.1" });' : 'app.listen(port, "127.0.0.1", () => console.log("API listening on http://localhost:" + port));'}

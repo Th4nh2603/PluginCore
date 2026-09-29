@@ -33,10 +33,10 @@
 
 **Interfaces:** A validated `{ username, passwordHash }` value is passed to a one-time file writer after project creation. The terminal password prompt does not echo input.
 
-- [ ] Write failing tests for Custom Authentication prompts, validation, and ignored hashed output.
-- [ ] Run focused tests and confirm expected failures.
-- [ ] Implement hidden prompt, normalization, scrypt hashing, and `0600` bootstrap file writer.
-- [ ] Run focused tests and confirm pass.
+- [x] Write failing tests for Custom Authentication prompts, validation, and ignored hashed output.
+- [x] Run focused tests and confirm expected failures.
+- [x] Implement hidden prompt, normalization, scrypt hashing, and `0600` bootstrap file writer.
+- [x] Run focused tests and confirm pass.
 
 ### Task 2: Generated username authentication
 
@@ -44,10 +44,10 @@
 
 **Interfaces:** User records and HTTP payloads use `{ id, username }`; scrypt hashes share one format with Task 1.
 
-- [ ] Write failing tests asserting generated schema, routes, and forms use username in both generation strategies.
-- [ ] Run focused tests and confirm expected failures.
-- [ ] Update generated source templates and test expectations.
-- [ ] Run focused tests and confirm pass.
+- [x] Write failing tests asserting generated schema, routes, and forms use username in both generation strategies.
+- [x] Run focused tests and confirm expected failures.
+- [x] Update generated source templates and test expectations.
+- [x] Run focused tests and confirm pass.
 
 ### Task 3: One-time API bootstrap
 
@@ -55,15 +55,22 @@
 
 **Interfaces:** `bootstrapInitialUser()` reads the file relative to the generated root, inserts once, and unlinks after success; API calls it before listening.
 
-- [ ] Write failing tests for successful seed, retry when DB is unavailable, duplicate username, and alternate working directory.
-- [ ] Run focused tests and confirm expected failures.
-- [ ] Implement bootstrap in both generation strategies.
-- [ ] Run focused tests and confirm pass.
+- [x] Write failing tests for successful seed, retry when DB is unavailable, duplicate username, and alternate working directory.
+- [x] Run focused tests and confirm expected failures.
+- [x] Implement bootstrap in both generation strategies.
+- [x] Run focused tests and confirm pass.
 
 ### Task 4: Documentation and end-to-end verification
 
 **Files:** `README.md`, `docs/cli-create-wizard.md`, generated README copy, affected tests.
 
-- [ ] Update the documented setup sequence and account behavior.
-- [ ] Run `pnpm test`, `pnpm build`, and `pnpm lint`.
-- [ ] Generate a temporary Custom Authentication repo and verify bootstrap login against PostgreSQL; remove the temporary repo and account afterward.
+- [x] Update the documented setup sequence and account behavior.
+- [x] Run `pnpm test`, `pnpm build`, and `pnpm lint`.
+- [x] Generate temporary Recommended and Custom Authentication repos, verify bootstrap login against PostgreSQL, and remove temporary repos and database afterward.
+
+## Verification record (2026-09-29)
+
+- `pnpm test`: 209 tests passed after the final prompt validation changes; `pnpm lint`, `pnpm typecheck` and `pnpm build` passed.
+- Generated Recommended React/Express/Prisma and Custom Vue/Fastify/Drizzle API/Web builds passed. Recommended API tests passed (2/2).
+- In a real PTY, the Custom Authentication wizard prompted for the initial username and two hidden passwords; the transcript contained no password and the bootstrap file was created.
+- A temporary PostgreSQL 18 cluster in `/tmp` confirmed schema setup, initial login and bootstrap-file removal for both generators. Starting the Custom API from the repository root also succeeded. Repeating bootstrap for an existing username preserved its original password and removed the one-time file. The temporary cluster and generated repos were removed.

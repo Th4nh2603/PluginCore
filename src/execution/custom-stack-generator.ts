@@ -68,7 +68,7 @@ export const generateCustomStack = async (root: string, config: RepoConfig, runn
     await writeFiles(root, { "docker-compose.yml": "services:\n  db:\n    image: postgres:16-alpine\n    environment:\n      POSTGRES_DB: app\n      POSTGRES_USER: app\n      POSTGRES_PASSWORD: app\n    ports:\n      - '127.0.0.1:5432:5432'\n    volumes:\n      - postgres-data:/var/lib/postgresql/data\nvolumes:\n  postgres-data:\n" });
   }
   await writeFiles(root, {
-    ".gitignore": "node_modules/\ndist/\n.env\n.env.local\n",
+    ".gitignore": "node_modules/\ndist/\n.env\n.env.local\n.repo-standard/initial-user.json\n",
     "README.md": customStackReadme(config, authentication)
   });
   if (runCommands) {

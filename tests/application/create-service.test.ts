@@ -155,11 +155,13 @@ describe("planCreate", () => {
     const authRouter = await readFile(path.join(targetDirectory, "apps", "api", "src", "auth", "router.ts"), "utf8");
     expect(authRouter).toContain("/register");
     expect(authRouter).toContain("/login");
-    expect(authRouter).toContain("Invalid email or password");
-    expect(await readFile(path.join(targetDirectory, "apps", "api", "src", "auth", "password.ts"), "utf8")).toContain("argon2id as 2");
+    expect(authRouter).toContain("Invalid username or password");
+    expect(await readFile(path.join(targetDirectory, "apps", "api", "src", "auth", "password.ts"), "utf8")).toContain("scrypt");
     expect(await readFile(path.join(targetDirectory, "apps", "api", "src", "auth", "token.ts"), "utf8")).toContain("15m");
     const apiPackage = JSON.parse(await readFile(path.join(targetDirectory, "apps", "api", "package.json"), "utf8"));
-    expect(apiPackage.dependencies).toMatchObject({ argon2: expect.any(String), jose: expect.any(String), "@prisma/client": expect.any(String) });
+    expect(apiPackage.dependencies).toMatchObject({ jose: expect.any(String), "@prisma/client": expect.any(String) });
+    expect(apiPackage.dependencies.argon2).toBeUndefined();
+    expect(apiPackage.scripts["db:push"]).toBe("prisma db push");
     expect(apiPackage.dependencies["@prisma/client"]).toBe("^6.19.3");
     expect(apiPackage.devDependencies.prisma).toBe("^6.19.3");
     const server = await readFile(path.join(targetDirectory, "apps", "api", "src", "server.ts"), "utf8");
@@ -204,7 +206,7 @@ describe("planCreate", () => {
     await applyCreatePlan(plan, { run: async () => undefined });
 
     expect(plan.config.composition.authentication).toBe("custom");
-    expect(await readFile(path.join(targetDirectory, "apps", "api", "src", "auth", "password.ts"), "utf8")).toContain("argon2id as 2");
+    expect(await readFile(path.join(targetDirectory, "apps", "api", "src", "auth", "password.ts"), "utf8")).toContain("scrypt");
   });
 
   it("rejects an unregistered authentication capability before creating a plan", async () => {
