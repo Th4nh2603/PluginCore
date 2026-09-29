@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-10-repository-standard-plugin-design.md`
 
-**Current status (2026-09-28):** The Phase 3 CLI foundation and Phase 4 create flow are implemented. This is a historical plan: unchecked RED steps mean the original test-first sequence was not independently verified, while unchecked implementation steps identify differences from the written plan. The doctor root/registry options and diagnostics were completed in the Phase 1–4 gap closure. Framework generation and capabilities were added in later work, so the original "exactly two files" create assertion no longer describes current output. The planned final push has not occurred.
+**Current status (2026-09-29):** The Phase 3 CLI foundation and Phase 4 create flow are implemented. This is a historical plan: unchecked RED steps mean the original test-first sequence was not independently verified, while unchecked implementation steps identify differences from the written plan. The doctor root/registry options and diagnostics were completed in the Phase 1–4 gap closure. Framework generation and capabilities were added in later work, so the original "exactly two files" create assertion no longer describes current output. The completed work was pushed to `origin/main`.
 
 ## Global Constraints
 
@@ -260,7 +260,7 @@ git commit -m "feat: create managed repositories from reviewed plans"
 
 ### Task 5: Document CLI use and run clean verification
 
-**Outcome:** README documents the current commands and supported project generation, including doctor flags. The requested push remains open.
+**Outcome:** README documents the current commands and supported project generation, including doctor flags. The completed work was pushed to `origin/main`.
 
 **Files:**
 - Modify: `README.md`

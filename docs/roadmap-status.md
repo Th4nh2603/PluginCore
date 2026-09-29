@@ -11,7 +11,7 @@
 | 5 — Agent system | Catalog, resolver, bốn mode, Codex adapter và `agents explain` đã có. | [Agent guide](agents.md), `src/core/resolver/agent-resolver.ts`, commit `6c86e99` | Chạy agent tự động không thuộc Phase 5. |
 | 6 — Flow system | Đã merge. Bốn manifest flow, selection, giải thích bước và tích hợp agent expertise có test. | [Flow plan](superpowers/plans/2026-09-28-flow-system.md), merge commit `98af304` | Flow hiện lập kế hoạch và giải thích, chưa thực thi agent; đó là giới hạn thiết kế Phase 6. |
 
-Kiểm tra trên bản `main` sau khi merge phần khép kín: lint, typecheck, build và 190 test qua. Các file chỉnh sửa cục bộ trên nhánh `feat/initial-username-account` được giữ nguyên, chưa được commit và không tham gia kết quả kiểm tra này. `main` chưa được push lên `origin/main`.
+Kiểm tra trên bản `main` sau khi merge phần khép kín: lint, typecheck, build và 190 test qua. Các file chỉnh sửa cục bộ trên nhánh `feat/initial-username-account` được giữ nguyên, chưa được commit và không tham gia kết quả kiểm tra này. `main` đã được push lên `origin/main` ngày 2026-09-29.
 
 Các mục Phase 7 trở đi trong [roadmap gốc](superpowers/specs/2026-09-10-repository-standard-plugin-design.md#19-implementation-roadmap) là phạm vi tiếp theo, không được tính là thiếu của Phase 1–6.
 
