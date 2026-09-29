@@ -12,3 +12,7 @@ agent:
   owns: [apps/api/prisma, apps/api/drizzle]
   commands: []
   instructions: Review data models and migrations. Preserve existing application data.
+  responsibilities:
+    - Design schema and data access changes for the selected ORM.
+    - Review migration safety and compatibility with existing data.
+    - Verify database changes against the configured PostgreSQL schema.

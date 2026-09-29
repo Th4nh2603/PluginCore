@@ -118,7 +118,7 @@ repo create my-web --type web --preset recommended-web --yes
 
 Ở chế độ không tương tác, bỏ `--yes` để xem preview mà chưa ghi file (exit code `2`). `--yes` hiện không tắt wizard trong terminal tương tác.
 
-Agent được chọn từ manifest trong registry và ghi vào `agents.enabled` của `repo.config.yaml`. Codex adapter tạo `AGENTS.md` cùng các file `agents/*.toml`; `none` không tạo các file này khi tạo project. Các vai trò chỉ là hướng dẫn làm việc, không tự khởi chạy agent. Xem [hệ thống agent](docs/agents.md) để dùng mode và lệnh giải thích theo tác vụ.
+Agent được chọn từ manifest trong registry và ghi vào `agents.enabled` của `repo.config.yaml`. Codex adapter tạo `AGENTS.md` tóm tắt vai trò, phạm vi, nhiệm vụ cụ thể, hướng dẫn và lệnh kiểm tra; `agents/*.toml` chứa metadata chi tiết. `none` không tạo các file này khi tạo project. Các vai trò chỉ là hướng dẫn làm việc, không tự khởi chạy agent. Xem [hệ thống agent](docs/agents.md) để dùng mode và lệnh giải thích theo tác vụ.
 
 Flow mặc định của project gồm `feature`, `bugfix`, `design`, `review`. Chạy `repo flows explain --text "Fix broken login"` trong project để xem flow được chọn và từng bước. Dùng `--flow design` để chọn trực tiếp, hoặc `--requires-review` để thêm bước review có điều kiện. `repo agents explain` nhận cùng các tùy chọn và tính thêm agent cần cho flow. Các lệnh giải thích là chỉ đọc; xem [hướng dẫn flow và agent](docs/agents.md).
 

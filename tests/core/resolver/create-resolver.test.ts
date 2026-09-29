@@ -41,7 +41,7 @@ describe("resolveCreateComposition", () => {
   it("takes the host adapter ID from project metadata", () => {
     const registry = new Registry([
       { schemaVersion: 1, id: "web", kind: "project-type", version: "1.0.0", displayName: "Web", selection: { stack: {}, adapters: ["custom-host"] }, agentHints: { required: [], recommended: ["frontend"] } },
-      { schemaVersion: 1, id: "frontend", kind: "agent", version: "1.0.0", displayName: "Frontend", agent: { expertise: [], intents: [], signals: [], owns: [], commands: [], instructions: "Work on UI.", reviewOnly: false, requiredOnSignal: false } },
+      { schemaVersion: 1, id: "frontend", kind: "agent", version: "1.0.0", displayName: "Frontend", agent: { expertise: [], intents: [], signals: [], owns: [], commands: [], instructions: "Work on UI.", responsibilities: [], reviewOnly: false, requiredOnSignal: false } },
       { schemaVersion: 1, id: "custom-host", kind: "adapter", version: "1.0.0", displayName: "Custom Host" }
     ]);
     const resolution = resolveCreateComposition(input(registry));

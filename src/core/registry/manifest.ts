@@ -76,6 +76,7 @@ export const ExtensionManifestSchema = z
       ownsByProjectType: z.record(z.string(), z.array(z.string())).optional(),
       commandsByProjectType: z.record(z.string(), z.array(z.string())).optional(),
       instructions: z.string().min(1),
+      responsibilities: z.array(z.string().min(1)).default([]),
       reviewOnly: z.boolean().default(false),
       requiredOnSignal: z.boolean().default(false)
     }).strict().optional()

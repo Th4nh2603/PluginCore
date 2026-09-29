@@ -12,5 +12,9 @@ agent:
   owns: []
   commands: []
   instructions: Assess authentication, authorization, secret handling and input validation.
+  responsibilities:
+    - Review authentication and authorization paths for privilege mistakes.
+    - Check input validation, secrets, and session handling.
+    - Report concrete risks and recommended fixes without editing source.
   reviewOnly: true
   requiredOnSignal: true

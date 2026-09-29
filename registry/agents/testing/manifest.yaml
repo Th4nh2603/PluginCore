@@ -13,3 +13,7 @@ agent:
   commands: [pnpm test]
   commandsByProjectType: { web: [pnpm build], api: [pnpm build], monorepo: [pnpm test] }
   instructions: Write focused tests and report exact verification results.
+  responsibilities:
+    - Add focused tests for changed behavior and important failure paths.
+    - Run relevant tests and distinguish failures from environment issues.
+    - Report test commands, results, and remaining coverage gaps.

@@ -3,7 +3,7 @@ id: backend
 kind: agent
 version: 1.0.0
 displayName: Backend Agent
-description: Owns Express API work in apps/api.
+description: Owns backend API work.
 compatibility: { projectTypes: [api, monorepo] }
 agentHints:
   recommended: [reviewer]
@@ -16,3 +16,7 @@ agent:
   ownsByProjectType: { api: [src], monorepo: [apps/api] }
   commandsByProjectType: { api: [pnpm build], monorepo: [pnpm --filter ./apps/api build] }
   instructions: Own API routes and validation. Preserve GET /health and keep secrets out of source.
+  responsibilities:
+    - Implement API routes and validate request inputs.
+    - Maintain authentication and database access using the selected stack.
+    - Preserve the health endpoint and verify backend changes with build or tests.

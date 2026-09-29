@@ -12,4 +12,8 @@ agent:
   commands: [pnpm test, pnpm lint]
   commandsByProjectType: { web: [pnpm build], api: [pnpm build], monorepo: [pnpm test, pnpm build] }
   instructions: Review changes and verification evidence. Report findings without editing source.
+  responsibilities:
+    - Inspect changes for correctness, regressions, and security risks.
+    - Check tests and build evidence against the requested behavior.
+    - Report findings with file paths and verification evidence.
   reviewOnly: true

@@ -9,12 +9,35 @@ import type { AgentAdapter } from "./agent-adapter.js";
 const toml = (value: string): string => JSON.stringify(value);
 const tomlArray = (values: readonly string[]): string => `[${values.map(toml).join(", ")}]`;
 
-const roleFile = (agent: ResolvedAgent, projectType: string): string => {
+const roleDetails = (agent: ResolvedAgent, projectType: string) => {
   const definition = agent.manifest.agent;
   if (definition === undefined) throw new RepositoryStandardError("MANIFEST_INVALID", `Agent "${agent.id}" has no rendering metadata.`);
-  const owns = definition.ownsByProjectType?.[projectType] ?? definition.owns;
-  const commands = definition.commandsByProjectType?.[projectType] ?? definition.commands;
-  return `id = ${toml(agent.id)}\nrole = ${toml(agent.id)}\nowns = ${tomlArray(owns)}\ncommands = ${tomlArray(commands)}\nreview_only = ${definition.reviewOnly}\ninstructions = ${toml(definition.instructions)}\n`;
+  return {
+    definition,
+    owns: definition.ownsByProjectType?.[projectType] ?? definition.owns,
+    commands: definition.commandsByProjectType?.[projectType] ?? definition.commands
+  };
+};
+
+const roleFile = (agent: ResolvedAgent, projectType: string): string => {
+  const { definition, owns, commands } = roleDetails(agent, projectType);
+  return `id = ${toml(agent.id)}\nrole = ${toml(agent.id)}\nversion = ${toml(agent.version)}\ndisplay_name = ${toml(agent.manifest.displayName)}\ndescription = ${toml(agent.manifest.description ?? "")}\nexpertise = ${tomlArray(definition.expertise)}\nintents = ${tomlArray(definition.intents)}\nsignals = ${tomlArray(definition.signals)}\nowns = ${tomlArray(owns)}\ncommands = ${tomlArray(commands)}\nresponsibilities = ${tomlArray(definition.responsibilities)}\nreview_only = ${definition.reviewOnly}\nselection_reason = ${toml(agent.reason)}\ninstructions = ${toml(definition.instructions)}\n`;
+};
+
+const roleSummary = (agent: ResolvedAgent, projectType: string): string => {
+  const { definition, owns, commands } = roleDetails(agent, projectType);
+  return [
+    `## ${agent.manifest.displayName} (\`${agent.id}\`)`,
+    "",
+    agent.manifest.description ?? definition.instructions,
+    "",
+    `- Role file: \`agents/${agent.id}.toml\``,
+    `- Scope: ${owns.length === 0 ? "project-wide advice" : owns.map((owned) => `\`${owned}\``).join(", ")}`,
+    `- Instructions: ${definition.instructions}`,
+    ...(definition.responsibilities.length === 0 ? [] : ["- Tasks:", ...definition.responsibilities.map((task) => `  - ${task}`)]),
+    ...(commands.length === 0 ? [] : [`- Verify: ${commands.map((command) => `\`${command}\``).join(", ")}`]),
+    ...(definition.reviewOnly ? ["- Review only: do not edit source files."] : [])
+  ].join("\n");
 };
 
 export const renderCodexAgents = async (targetDirectory: string, resolution: AgentResolution): Promise<GenerationResult> => {
@@ -24,8 +47,14 @@ export const renderCodexAgents = async (targetDirectory: string, resolution: Age
     if (!/^[a-z0-9-]+$/u.test(agent.id)) throw new RepositoryStandardError("MANIFEST_INVALID", `Agent ID "${agent.id}" cannot be used as a role filename.`);
     return { relative: `agents/${agent.id}.toml`, content: roleFile(agent, resolution.projectType) };
   });
-  const index = "# Agent roles\n\nRead the matching role file before changing its workspace. Roles marked review_only are advisory.\n\n" +
-    files.map(({ relative }) => `- \`${relative}\``).join("\n") + "\n";
+  const index = [
+    "# Agent roles",
+    "",
+    `Project type: ${resolution.projectType}. Read \`repo.config.yaml\` and \`README.md\` for the actual stack and setup commands.`,
+    "These roles are working instructions; creating the repository does not start agents. Follow the matching role guidance for each affected area.",
+    "",
+    ...resolution.enabled.map((agent) => roleSummary(agent, resolution.projectType)).flatMap((summary) => [summary, ""])
+  ].join("\n");
   files.unshift({ relative: "AGENTS.md", content: index });
 
   for (const { relative, content } of files) {

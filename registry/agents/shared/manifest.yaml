@@ -14,3 +14,7 @@ agent:
   owns: [packages/shared]
   commands: [pnpm --filter ./packages/shared build]
   instructions: Own public TypeScript contracts and preserve compatibility.
+  responsibilities:
+    - Define shared types and public contracts used by web and API packages.
+    - Coordinate contract changes with both consumers and avoid accidental breakage.
+    - Build the shared package after changing exported contracts.

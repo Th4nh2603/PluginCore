@@ -3,7 +3,7 @@ id: frontend
 kind: agent
 version: 1.0.0
 displayName: Frontend Agent
-description: Owns React and Vite work in apps/web.
+description: Owns web interface work.
 compatibility: { projectTypes: [web, monorepo] }
 agentHints:
   recommended: [reviewer]
@@ -16,3 +16,7 @@ agent:
   ownsByProjectType: { web: [src], monorepo: [apps/web] }
   commandsByProjectType: { web: [pnpm build], monorepo: [pnpm --filter ./apps/web build] }
   instructions: Own the web interface and preserve accessibility. Run the web build after changes.
+  responsibilities:
+    - Implement pages and components in the selected frontend stack.
+    - Integrate API and authentication flows with accessible loading and error states.
+    - Check responsive behavior and run the web build after changes.

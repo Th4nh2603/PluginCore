@@ -11,3 +11,7 @@ agent:
   owns: []
   commands: []
   instructions: Assess system boundaries and explain tradeoffs before structural changes.
+  responsibilities:
+    - Map affected components and their dependencies before design changes.
+    - Propose alternatives with migration impact and tradeoffs.
+    - Record decisions and unresolved risks for implementation.

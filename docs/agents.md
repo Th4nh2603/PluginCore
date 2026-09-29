@@ -19,7 +19,7 @@ repo create platform --type monorepo --agents none --yes
 | `custom` | Chỉ chọn ID trong `--agent` hoặc danh sách nhập trong wizard; ID phải có manifest tương thích. |
 | `none` | Không tạo file agent nếu project không khai báo vai trò bắt buộc. |
 
-`repo.config.yaml` lưu mode, `enabled` dưới dạng `id@version` và ID adapter. Codex adapter tạo `AGENTS.md` và một file `agents/<id>.toml` cho mỗi vai trò đã chọn. `review_only = true` giữ Reviewer và Security ở vai trò tư vấn, không giao việc sửa source cho chúng. Các file này là hướng dẫn cho AI host; CLI không tự chạy agent.
+`repo.config.yaml` lưu mode, `enabled` dưới dạng `id@version` và ID adapter. Codex adapter tạo `AGENTS.md` với mô tả, phạm vi phụ trách, nhiệm vụ cụ thể, hướng dẫn và lệnh kiểm tra của từng vai trò; mỗi `agents/<id>.toml` lưu thêm chuyên môn, tín hiệu và lý do chọn vai trò. Thông tin này lấy từ manifest trong registry và dùng đường dẫn phù hợp với loại project. `review_only = true` giữ Reviewer và Security ở vai trò tư vấn, không giao việc sửa source cho chúng. Các file này là hướng dẫn cho AI host; CLI không tự chạy agent. Nếu chọn `none` và không có vai trò bắt buộc, sẽ không có `AGENTS.md` hay file vai trò.
 
 ## Giải thích lựa chọn theo tác vụ
 
