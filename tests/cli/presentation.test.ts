@@ -106,8 +106,15 @@ describe("formatCreateSuccess", () => {
     expect(message).not.toContain("db:push");
   });
 
-  it("uses success color when terminal color is enabled", () => {
-    expect(formatCreateSuccess({ targetDirectory: "D:/work/demo", projectType: "web" }, true)).toContain("\u001B[92m");
+  it("colors each setup command and keeps the plain version copyable", () => {
+    const colored = formatCreateSuccess({ targetDirectory: "/work/platform", projectType: "monorepo" }, true);
+    const plain = formatCreateSuccess({ targetDirectory: "/work/platform", projectType: "monorepo" }, false);
+
+    expect(colored).toContain('\u001B[96mcd "/work/platform"\u001B[0m');
+    expect(colored).toContain("\u001B[94mdocker compose up -d\u001B[0m");
+    expect(colored).toContain("\u001B[95mpnpm --filter ./apps/api db:push\u001B[0m");
+    expect(colored).toContain("\u001B[92mpnpm dev\u001B[0m");
+    expect(plain).not.toContain("\u001B[");
   });
 });
 

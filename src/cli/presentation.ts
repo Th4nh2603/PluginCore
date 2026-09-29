@@ -89,16 +89,19 @@ export const formatCreateSuccess = ({ targetDirectory, projectType }: CreateSucc
   const heading = dependenciesInstalled
     ? "SUCCESS  Project created and dependencies installed."
     : "SUCCESS  Project created successfully.";
+  const changeDirectory = { command: `cd "${targetDirectory}"`, colorCode: 96 };
+  const startDatabase = { command: "docker compose up -d", colorCode: 94 };
+  const startApp = { command: "pnpm dev", colorCode: 92 };
   const nextSteps = projectType === "monorepo"
-    ? [`cd "${targetDirectory}"`, "docker compose up -d", "pnpm --filter ./apps/api db:push", "pnpm dev"]
+    ? [changeDirectory, startDatabase, { command: "pnpm --filter ./apps/api db:push", colorCode: 95 }, startApp]
     : projectType === "api"
-      ? [`cd "${targetDirectory}"`, "docker compose up -d", "pnpm db:push", "pnpm dev"]
-      : [`cd "${targetDirectory}"`];
+      ? [changeDirectory, startDatabase, { command: "pnpm db:push", colorCode: 95 }, startApp]
+      : [changeDirectory];
 
   return [
     paint(heading, 92, color),
     paint("Next steps", "1;96", color),
-    ...nextSteps.map((step) => `  ${paint(step, 97, color)}`)
+    ...nextSteps.map((step) => `  ${paint(step.command, step.colorCode, color)}`)
   ].join("\n");
 };
 

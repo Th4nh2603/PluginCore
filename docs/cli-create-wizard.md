@@ -79,6 +79,6 @@ Các loại project này giữ luồng hiện tại: `Setup` → Recommended pre
 
 Khi stdin không tương tác, cần truyền tên và `--type`. Nếu không có `--yes`, CLI chỉ hiện preview rồi thoát với mã `2`. Chế độ này không vào màn chỉnh stack. `--yes` trong terminal tương tác không bỏ qua `Review`.
 
-Sau khi tạo, CLI ghi `repo.config.yaml` và `.repo-standard/managed-state.yaml`, rồi hiện lệnh `cd` vào project. Với Monorepo, phần **Next steps** lần lượt hiện `docker compose up -d`, `pnpm --filter ./apps/api db:push`, `pnpm dev`. Với API, lệnh tạo schema là `pnpm db:push`. Nếu dùng PostgreSQL có sẵn thay cho Docker, kiểm tra `DATABASE_URL` trong `.env` và bỏ qua lệnh `docker compose up -d`. Project chỉ có Web không cần lệnh Docker hoặc `db:push`.
+Sau khi tạo, CLI ghi `repo.config.yaml` và `.repo-standard/managed-state.yaml`, rồi hiện lệnh `cd` vào project. Với Monorepo, phần **Next steps** lần lượt hiện `docker compose up -d`, `pnpm --filter ./apps/api db:push`, `pnpm dev`. Với API, lệnh tạo schema là `pnpm db:push`. Các lệnh được tô màu khi terminal hỗ trợ màu; `NO_COLOR` giữ văn bản thuần. Nếu dùng PostgreSQL có sẵn thay cho Docker, kiểm tra `DATABASE_URL` trong `.env` và bỏ qua lệnh `docker compose up -d`. Project chỉ có Web không cần lệnh Docker hoặc `db:push`.
 
 Chạy `repo agents explain --root <project> --target apps/api/src/auth/router.ts --text "Fix login"` để xem lựa chọn theo tác vụ. Xem [hướng dẫn agent](agents.md) để biết các mode và vai trò.
