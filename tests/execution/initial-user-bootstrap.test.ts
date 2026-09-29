@@ -27,11 +27,11 @@ describe("generated initial user bootstrap", () => {
       const source = customBackendFiles("api", "fastify", "drizzle")["src/auth/bootstrap.ts"];
       expect(source).toBeDefined();
       const bootstrap = await loadBootstrap(root, source!);
-      const account = await prepareInitialUser("Alice", "long-enough-password", "long-enough-password");
+      const account = await prepareInitialUser("long-enough-password", "long-enough-password");
       await writeInitialUser(root, account);
       const created: User[] = [];
       await bootstrap(async () => undefined, async (username, passwordHash) => { created.push({ username, passwordHash }); });
-      expect(created).toEqual([{ username: "alice", passwordHash: account.passwordHash }]);
+      expect(created).toEqual([{ username: "admin", passwordHash: account.passwordHash }]);
       expect(existsSync(path.join(root, ".repo-standard", "initial-user.json"))).toBe(false);
       await bootstrap(async () => undefined, async () => { throw new Error("must not create twice"); });
     } finally { await rm(root, { recursive: true, force: true }); }
@@ -41,12 +41,12 @@ describe("generated initial user bootstrap", () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "repo-bootstrap-retry-"));
     try {
       const bootstrap = await loadBootstrap(root, customBackendFiles("api", "express", "prisma")["src/auth/bootstrap.ts"]!);
-      const account = await prepareInitialUser("Alice", "long-enough-password", "long-enough-password");
+      const account = await prepareInitialUser("long-enough-password", "long-enough-password");
       await writeInitialUser(root, account);
       const file = path.join(root, ".repo-standard", "initial-user.json");
       await expect(bootstrap(async () => { throw new Error("database offline"); }, async () => undefined)).rejects.toThrow("database offline");
       expect(existsSync(file)).toBe(true);
-      await bootstrap(async () => ({ username: "alice", passwordHash: "other-hash" }), async () => { throw new Error("must not overwrite"); });
+      await bootstrap(async () => ({ username: "admin", passwordHash: "other-hash" }), async () => { throw new Error("must not overwrite"); });
       expect(existsSync(file)).toBe(false);
     } finally { await rm(root, { recursive: true, force: true }); }
   });
@@ -74,7 +74,7 @@ describe("generated initial user bootstrap", () => {
       const moduleFile = path.join(root, "password.mjs");
       await writeFile(moduleFile, ts.transpileModule(passwordSource, { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText);
       const { verifyPassword } = await import(pathToFileURL(moduleFile).href) as { verifyPassword: (hash: string, password: string) => Promise<boolean> };
-      const account = await prepareInitialUser("Alice", "long-enough-password", "long-enough-password");
+      const account = await prepareInitialUser("long-enough-password", "long-enough-password");
       expect(await verifyPassword(account.passwordHash, "long-enough-password")).toBe(true);
       expect(await verifyPassword(account.passwordHash, "wrong-password")).toBe(false);
     } finally { await rm(root, { recursive: true, force: true }); }

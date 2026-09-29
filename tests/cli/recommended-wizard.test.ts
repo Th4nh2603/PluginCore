@@ -25,47 +25,57 @@ describe("recommended create wizard", () => {
       expect(existsSync(target)).toBe(false);
     } finally { await rm(root, { recursive: true, force: true }); }
   });
-  it("asks for an initial account after Install and writes an ignored hash", async () => {
+  it("creates the fixed admin account after Install and writes an ignored hash", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "repo-initial-wizard-"));
     const target = path.join(root, "platform");
     const prompts: string[] = [];
+    const output: string[] = [];
     try {
       expect(await runCli(["create", "platform", "--type", "monorepo", "--target", target], {
-        write: () => undefined,
+        write: (line) => output.push(line),
         prompt: {
-          input: async (message) => { prompts.push(message); return "Alice_1"; },
+          input: async () => { throw new Error("Admin username must not be prompted"); },
           secret: async (message) => { prompts.push(message); return "long-enough-password"; },
           confirm: async () => false,
           select: async (message) => ({ "Agent setup": "none", "Start from": "recommended", "Configure stack": "continue", Review: "install" })[message] ?? "invalid"
         },
         generatorRunner: { run: async () => undefined }
       })).toBe(0);
-      expect(prompts).toEqual(["Initial username", "Password", "Confirm password"]);
+      expect(prompts).toEqual(["Password", "Confirm password"]);
+      expect(output.join("\n")).toContain("Admin username: admin");
       const bootstrap = await readFile(path.join(target, ".repo-standard", "initial-user.json"), "utf8");
-      expect(bootstrap).toContain('"username":"alice_1"');
+      expect(bootstrap).toContain('"username":"admin"');
       expect(bootstrap).not.toContain("long-enough-password");
       expect(await readFile(path.join(target, ".gitignore"), "utf8")).toContain(".repo-standard/initial-user.json");
-      expect(await readFile(path.join(target, "repo.config.yaml"), "utf8")).not.toContain("alice_1");
+      expect(await readFile(path.join(target, "repo.config.yaml"), "utf8")).not.toContain('"admin"');
       expect(await readFile(path.join(target, ".repo-standard", "managed-state.yaml"), "utf8")).not.toContain("initial-user.json");
     } finally { await rm(root, { recursive: true, force: true }); }
   });
 
-  it("rejects mismatched account confirmation before creating the project", async () => {
+  it("retries short and mismatched passwords before creating the project", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "repo-initial-mismatch-"));
     const target = path.join(root, "platform");
     let secretCount = 0;
+    const output: string[] = [];
     try {
-      await expect(runCli(["create", "platform", "--type", "monorepo", "--target", target], {
-        write: () => undefined,
+      expect(await runCli(["create", "platform", "--type", "monorepo", "--target", target], {
+        write: (line) => output.push(line),
         prompt: {
-          input: async () => "alice",
-          secret: async () => ++secretCount === 1 ? "long-enough-password" : "different-password",
+          input: async () => { throw new Error("Admin username must not be prompted"); },
+          secret: async () => {
+            expect(existsSync(target)).toBe(false);
+            return ["short", "short", "long-enough-password", "different-password", "long-enough-password", "long-enough-password"][secretCount++]!;
+          },
           confirm: async () => false,
           select: async (message) => ({ "Agent setup": "none", "Start from": "recommended", "Configure stack": "continue", Review: "install" })[message] ?? "invalid"
         },
         generatorRunner: { run: async () => undefined }
-      })).rejects.toThrow("confirmation");
-      expect(existsSync(target)).toBe(false);
+      })).toBe(0);
+      expect(secretCount).toBe(6);
+      expect(output.join("\n")).toContain("Admin username: admin");
+      expect(output.join("\n")).toContain("12–128");
+      expect(output.join("\n")).toContain("confirmation");
+      expect(JSON.parse(await readFile(path.join(target, ".repo-standard", "initial-user.json"), "utf8")).username).toBe("admin");
     } finally { await rm(root, { recursive: true, force: true }); }
   });
   it("edits a preset in place and installs only after Review", async () => {

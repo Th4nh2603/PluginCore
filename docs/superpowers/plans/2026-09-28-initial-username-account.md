@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Interactive `repo create` asks for an initial username and password, then generated Custom Authentication apps create and accept that account.
+**Goal:** Interactive `repo create` displays the fixed username `admin` and asks for its password, then generated Custom Authentication apps create and accept that account.
 
 **Architecture:** The CLI validates credentials and stores a salted scrypt hash in an ignored one-time bootstrap file. Generated APIs consume the file before listening; both generation strategies use username throughout authentication.
 
@@ -12,14 +12,14 @@
 
 ## Global Constraints
 
-- Credentials never appear in `repo.config.yaml`, managed state, source, logs, or shell arguments.
+- Plain passwords and password hashes never appear in `repo.config.yaml`, managed state, source, logs, or shell arguments; the CLI displays the fixed username `admin`.
 - The bootstrap file is mode `0600` and removed only after successful or already-complete seeding.
 - Clerk and noninteractive creation keep existing behavior.
 - Existing `PluginCore` working-tree changes are preserved.
 
 ## Review Focus
 
-- Password mismatch fails before file generation.
+- Invalid or mismatched passwords prompt again before file generation.
 - Database unavailable retains the bootstrap file for retry.
 - Username collision does not overwrite an existing password.
 - Running the API from a different working directory still finds the bootstrap file.
@@ -35,7 +35,7 @@
 
 - [x] Write failing tests for Custom Authentication prompts, validation, and ignored hashed output.
 - [x] Run focused tests and confirm expected failures.
-- [x] Implement hidden prompt, normalization, scrypt hashing, and `0600` bootstrap file writer.
+- [x] Implement hidden prompt, scrypt hashing, and `0600` bootstrap file writer.
 - [x] Run focused tests and confirm pass.
 
 ### Task 2: Generated username authentication
@@ -74,3 +74,11 @@
 - Generated Recommended React/Express/Prisma and Custom Vue/Fastify/Drizzle API/Web builds passed. Recommended API tests passed (2/2).
 - In a real PTY, the Custom Authentication wizard prompted for the initial username and two hidden passwords; the transcript contained no password and the bootstrap file was created.
 - A temporary PostgreSQL 18 cluster in `/tmp` confirmed schema setup, initial login and bootstrap-file removal for both generators. Starting the Custom API from the repository root also succeeded. Repeating bootstrap for an existing username preserved its original password and removed the one-time file. The temporary cluster and generated repos were removed.
+
+## Wizard correction (2026-09-29)
+
+- [x] Fix the bootstrap username to `admin` and display `Admin username: admin` in the CLI.
+- [x] Repeat the hidden password and confirmation prompts after a length or mismatch error; create the project only after valid input.
+- [x] Update the wizard, bootstrap, and documentation tests for the corrected flow.
+
+The verification record above describes the original variable-username flow. For the corrected flow, focused wizard and bootstrap tests passed (18/18). The full suite passed (208/208), as did `pnpm lint`, `pnpm typecheck`, and `pnpm build`.

@@ -25,4 +25,4 @@ Các mục Phase 7 trở đi trong [roadmap gốc](superpowers/specs/2026-09-10-
 
 ## Mở rộng sau Phase 1–6: initial username account
 
-Wizard Monorepo với Custom Authentication hỏi username và mật khẩu ẩn sau Install. File hash scrypt dùng một lần nằm ngoài config và managed state, được Git bỏ qua; API tạo user trước khi lắng nghe. [Plan triển khai](superpowers/plans/2026-09-28-initial-username-account.md) ghi các ca kiểm thử và xác minh PostgreSQL thật trên cả generator Recommended lẫn Custom. Các project đã sinh trước thay đổi này không được di trú tự động.
+Wizard Monorepo với Custom Authentication hiển thị username cố định `admin` và hỏi mật khẩu ẩn sau Install. Nếu mật khẩu không hợp lệ hoặc xác nhận không khớp, wizard hỏi lại trước khi tạo project. File hash scrypt dùng một lần nằm ngoài config và managed state, được Git bỏ qua; API tạo user trước khi lắng nghe. [Plan triển khai](superpowers/plans/2026-09-28-initial-username-account.md) ghi các ca kiểm thử và xác minh PostgreSQL thật trên cả generator Recommended lẫn Custom. Các project đã sinh trước thay đổi này không được di trú tự động.

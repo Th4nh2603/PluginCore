@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import select from "@inquirer/select";
 
 import { applyCreatePlan, planCreate, validateCreateDestination } from "../application/create-service.js";
-import { prepareInitialUser, writeInitialUser, type InitialUser } from "../application/initial-user.js";
+import { InitialUserValidationError, prepareInitialUser, writeInitialUser, type InitialUser } from "../application/initial-user.js";
 import { runDoctor } from "../application/doctor-service.js";
 import type { GeneratorRunner } from "../application/generator-runner.js";
 import { buildInfo } from "../application/info-service.js";
@@ -84,13 +84,20 @@ const terminalPrompt = (color: boolean): CliPrompt => {
   };
 };
 
-const promptInitialUser = async (authentication: string | undefined, prompt: CliPrompt | undefined): Promise<InitialUser | undefined> => {
+const promptInitialUser = async (authentication: string | undefined, prompt: CliPrompt | undefined, io: CliIo): Promise<InitialUser | undefined> => {
   if (authentication !== "custom" || prompt === undefined) return undefined;
   if (prompt.secret === undefined) throw new Error("Interactive Custom Authentication requires a hidden password prompt.");
-  const username = await prompt.input("Initial username");
-  const password = await prompt.secret("Password");
-  const confirmation = await prompt.secret("Confirm password");
-  return prepareInitialUser(username, password, confirmation);
+  io.write("Admin username: admin");
+  for (;;) {
+    const password = await prompt.secret("Password");
+    const confirmation = await prompt.secret("Confirm password");
+    try {
+      return await prepareInitialUser(password, confirmation);
+    } catch (error) {
+      if (!(error instanceof InitialUserValidationError)) throw error;
+      io.write(formatWarning(error.message, io.color ?? false));
+    }
+  }
 };
 
 const saveInitialUser = async (targetDirectory: string, account: InitialUser | undefined, io: CliIo): Promise<void> => {
@@ -377,7 +384,7 @@ const runCommand = async (argv: readonly string[], io: CliIo): Promise<number> =
           io.write(formatWarning("Creation cancelled. No files were written.", color));
           return 2;
         }
-        const account = await promptInitialUser(plan.config.composition.authentication, interactive);
+        const account = await promptInitialUser(plan.config.composition.authentication, interactive, io);
         await applyCreatePlan(plan, io.generatorRunner);
         await saveInitialUser(plan.targetDirectory, account, io);
         io.write(formatCreateSuccess({ targetDirectory: plan.targetDirectory, projectType }, color));
@@ -511,7 +518,7 @@ const runCommand = async (argv: readonly string[], io: CliIo): Promise<number> =
       return 2;
     }
 
-    const account = await promptInitialUser(plan.config.composition.authentication, interactive);
+    const account = await promptInitialUser(plan.config.composition.authentication, interactive, io);
     await applyCreatePlan(plan, io.generatorRunner);
     await saveInitialUser(plan.targetDirectory, account, io);
     io.write(formatCreateSuccess({ targetDirectory: plan.targetDirectory, projectType: plan.config.project.type }, color));

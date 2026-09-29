@@ -11,7 +11,7 @@ export const customFrontendFiles = (name: string, frontend: string): Record<stri
 export const customBackendFiles = (name: string, backend: string, orm: string): Record<string, string> => backendFiles(name, backend, orm, customBackendAuthentication);
 export const customEnvironment = (): string => `JWT_SECRET=${randomBytes(32).toString("hex")}\n`;
 export const customReadmeSetup = "";
-export const customReadmeEnd = "\nFor interactive Custom Authentication creation, the initial username is stored as a one-time salted scrypt hash in .repo-standard/initial-user.json. After db:push, start the API to create that user; the file is removed after a successful seed. If PostgreSQL is unavailable, keep the file and retry startup. You can also register users in the web form. Passwords are 12–128 characters; sessions use HttpOnly cookies. The JWT secret is generated per project; use your deployment secret store in production.\n";
+export const customReadmeEnd = "\nFor interactive Custom Authentication creation, the CLI displays the fixed initial username admin and asks for a hidden password twice, repeating the prompts until the 12–128 character password is valid and confirmed. A one-time salted scrypt hash is stored in .repo-standard/initial-user.json. After db:push, start the API to create that user; the file is removed after a successful seed. If PostgreSQL is unavailable, keep the file and retry startup. You can also register users in the web form. Sessions use HttpOnly cookies. The JWT secret is generated per project; use your deployment secret store in production.\n";
 
 const legacyPasswordSource = `import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";

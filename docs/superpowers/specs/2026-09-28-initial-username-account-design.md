@@ -2,13 +2,13 @@
 
 ## Goal
 
-For an interactive `repo create` that selects Monorepo with Custom Authentication, ask the creator for a username and password and make that account usable after the generated database is initialized. The creator should not need to use the registration API manually.
+For an interactive `repo create` that selects Monorepo with Custom Authentication, create an initial account with username `admin` and ask the creator for its password. The account is usable after the generated database is initialized. The creator should not need to use the registration API manually.
 
 ## User flow
 
-The wizard shows the existing stack review. After **Install**, it asks for a username, hidden password, and hidden password confirmation. A username is 3–32 lowercase ASCII letters, digits, underscores, or internal hyphens; uppercase input is normalized to lowercase. Passwords are 12–128 characters. Invalid or mismatched input stops creation with a clear message before writing credential material. Clerk and noninteractive creation keep their current flow and do not prompt for an account.
+The wizard shows the existing stack review. After **Install**, it displays `Admin username: admin`, then asks for a hidden password and hidden password confirmation. Passwords are 12–128 characters. For invalid or mismatched passwords, it displays a clear error and repeats both password prompts before writing any project files. Clerk and noninteractive creation keep their current flow and do not prompt for an account.
 
-The CLI creates the project and writes a one-time `.repo-standard/initial-user.json` file containing the normalized username and a salted scrypt password hash. The file is mode `0600`, is excluded by the generated `.gitignore`, and is never listed in managed state or `repo.config.yaml`. The plain password is never written or printed. The CLI displays that PostgreSQL and schema setup are still required.
+The CLI creates the project and writes a one-time `.repo-standard/initial-user.json` file containing the fixed username `admin` and a salted scrypt password hash. The file is mode `0600`, is excluded by the generated `.gitignore`, and is never listed in managed state or `repo.config.yaml`. The plain password is never written or printed. The CLI displays that PostgreSQL and schema setup are still required.
 
 After the generated schema exists, the generated API reads the one-time file before listening, creates the user if absent, and removes the file only after successful creation or after confirming that the same username already exists. If the database is unavailable, startup reports the database error and retains the file for retry. A malformed file fails startup and stays in place for inspection. The file path resolves from the generated repository root, independent of the process working directory.
 
