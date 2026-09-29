@@ -1,6 +1,6 @@
 # Trạng thái roadmap Phase 1–6
 
-Đối chiếu ngày 2026-09-28 với `main` sau khi merge Phase 4 và Phase 6. Dấu `[x]` trong plan nghĩa là có bằng chứng từ code, kiểm thử hoặc commit; bước yêu cầu kiểm thử RED lịch sử vẫn để `[ ]` nếu không tìm được bằng chứng về đúng trình tự đó. Điều này không phủ nhận chức năng hiện đang chạy.
+Đối chiếu ngày 2026-09-29 với `main` sau khi merge Phase 4, Phase 6 và phần khép kín Phase 1–4. Dấu `[x]` trong plan nghĩa là có bằng chứng từ code, kiểm thử hoặc commit; bước yêu cầu kiểm thử RED lịch sử vẫn để `[ ]` nếu không tìm được bằng chứng về đúng trình tự đó. Điều này không phủ nhận chức năng hiện đang chạy.
 
 | Phase | Trạng thái chức năng | Bằng chứng | Phần chưa khép kín trong tài liệu/plan |
 | --- | --- | --- | --- |
@@ -11,13 +11,14 @@
 | 5 — Agent system | Catalog, resolver, bốn mode, Codex adapter và `agents explain` đã có. | [Agent guide](agents.md), `src/core/resolver/agent-resolver.ts`, commit `6c86e99` | Chạy agent tự động không thuộc Phase 5. |
 | 6 — Flow system | Đã merge. Bốn manifest flow, selection, giải thích bước và tích hợp agent expertise có test. | [Flow plan](superpowers/plans/2026-09-28-flow-system.md), merge commit `98af304` | Flow hiện lập kế hoạch và giải thích, chưa thực thi agent; đó là giới hạn thiết kế Phase 6. |
 
-Kiểm tra trên bản `main` vừa merge: lint, typecheck, build và 185 test qua. Sau khi khôi phục 8 file chỉnh sửa cục bộ có từ trước, checkout hiện tại qua 191 test cùng các kiểm tra trên. Các file cục bộ đó chưa được commit; `main` cũng chưa được push lên `origin/main`.
+Kiểm tra trên bản `main` sau khi merge phần khép kín: lint, typecheck, build và 190 test qua. Các file chỉnh sửa cục bộ trên nhánh `feat/initial-username-account` được giữ nguyên, chưa được commit và không tham gia kết quả kiểm tra này. `main` chưa được push lên `origin/main`.
 
 Các mục Phase 7 trở đi trong [roadmap gốc](superpowers/specs/2026-09-10-repository-standard-plugin-design.md#19-implementation-roadmap) là phạm vi tiếp theo, không được tính là thiếu của Phase 1–6.
 
 ## Xác minh bổ sung cho Phase 3–4
 
 - `repo doctor --project-root <generated-project> --registry registry`: `CONFIG_VALID`, `REGISTRY_VALID`, summary 2 passed/0 warnings/0 errors.
+- `repo doctor --project-root <missing>` trả `CONFIG_INVALID` và exit 1; manifest registry sai nêu rõ trường không hợp lệ trong diagnostic. Hai trường hợp có kiểm thử RED→GREEN.
 - PTY với `node bin/repo.cjs`: Recommended → Frontend Vue → Review → Cancel trả mã 2 và không tạo thư mục.
 - PTY với `runCli` thật và generator runner giả lập: cùng lựa chọn → Install trả mã 0, `repo.config.yaml` giữ preset và ghi Vue; managed state được tạo.
 - Monorepo Custom Authentication tạo thật với Node 22.22.1 và pnpm 10.34.5; `pnpm --filter ./apps/api build`, `pnpm --filter ./apps/web build` và API test 2/2 đều qua sau khi cài dependencies.
