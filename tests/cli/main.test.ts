@@ -52,6 +52,17 @@ describe("runCli", () => {
     expect(await runCli(["doctor", "--project-root"], { write: (line) => output.push(line) })).toBe(2);
     expect(output.join("\n")).toContain("--project-root");
   });
+  it("returns an error for a project root that does not exist", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-missing-doctor-root-"));
+    const output: string[] = [];
+    try {
+      expect(await runCli(["doctor", "--project-root", path.join(root, "missing")], { write: (line) => output.push(line) })).toBe(1);
+      expect(output.join("\n")).toContain("CONFIG_INVALID");
+      expect(output.at(-1)).toBe("Summary: 0 passed, 0 warnings, 1 error.");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
   it("explains a bugfix flow and includes its expertise in agent selection", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "repo-standard-flow-explain-"));
     const targetDirectory = path.join(root, "platform");

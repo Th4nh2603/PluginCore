@@ -135,7 +135,7 @@ Expected: FAIL because `runDoctor` does not exist.
 
 - [x] **Step 3: Implement doctor as a read-only service**
 
-`runDoctor` calls `loadRepoConfig(projectRoot)` and maps `ENOENT` to warning `CONFIG_MISSING`; config validation errors become `CONFIG_INVALID` errors; a valid config emits `CONFIG_VALID`. When `registryRoot` is supplied, it calls `loadRegistry` and reports `REGISTRY_VALID` or an error diagnostic. `repo doctor [--project-root <path>] [--registry <path>]` prints summary counts and returns `1` only when errors exist.
+`runDoctor` checks that `projectRoot` is an existing directory, then calls `loadRepoConfig(projectRoot)`. A missing config in an existing directory maps to warning `CONFIG_MISSING`; a missing project root or invalid config becomes `CONFIG_INVALID`; a valid config emits `CONFIG_VALID`. When `registryRoot` is supplied, it calls `loadRegistry` and reports `REGISTRY_VALID` or an error diagnostic that includes invalid manifest fields. `repo doctor [--project-root <path>] [--registry <path>]` prints summary counts and returns `1` when errors exist.
 
 - [x] **Step 4: Verify**
 

@@ -33,6 +33,13 @@ describe("runDoctor", () => {
     const invalid = await runDoctor({ projectRoot: root, registryRoot });
     expect(invalid.warnings).toContainEqual(expect.objectContaining({ code: "CONFIG_MISSING" }));
     expect(invalid.errors).toContainEqual(expect.objectContaining({ code: "REGISTRY_INVALID" }));
+    expect(invalid.errors[0]?.message).toContain("schemaVersion");
+  });
+  it("reports an absent project root as an error", async () => {
+    const root = await makeRoot();
+    const report = await runDoctor({ projectRoot: path.join(root, "missing") });
+    expect(report.errors).toContainEqual(expect.objectContaining({ code: "CONFIG_INVALID" }));
+    expect(report.warnings).toEqual([]);
   });
   it("reports a missing repo.config.yaml as a warning", async () => {
     const report = await runDoctor({ projectRoot: await makeRoot() });
